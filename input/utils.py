@@ -31,29 +31,23 @@ def identify_modality(path):
 
 def coregister(output_path, ref, mov, ref_name):
     import os
-    import SimpleITK as sitk
+    import SimpleITK as Sitk
 
     output_folder = os.path.join(output_path, "coreg_with_" + ref_name)
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     coreg_img = os.path.join(output_folder, "coreg_" + os.path.basename(mov))
 
-    dst = None
-    elastixImageFilter = sitk.ElastixImageFilter()
+    elastix_image_filter = Sitk.ElastixImageFilter()
     try:
-        elastixImageFilter.SetFixedImage(sitk.ReadImage(ref))
-        elastixImageFilter.SetMovingImage(sitk.ReadImage(mov))
+        elastix_image_filter.SetFixedImage(Sitk.ReadImage(ref))
+        elastix_image_filter.SetMovingImage(Sitk.ReadImage(mov))
     except IOError:
         print("Could not read " + ref + " or " + mov)
-    elastixImageFilter.SetParameterMap(sitk.GetDefaultParameterMap("translation"))
-    try:
-        elastixImageFilter.Execute()
-        sitk.WriteImage(elastixImageFilter.GetResultImage(), coreg_img)
-        dst = coreg_img
-    except RuntimeError:
-        print("Error while performing registration between " + ref + " and " + mov)
-        dst = mov
-    return dst
+    elastix_image_filter.SetParameterMap(Sitk.GetDefaultParameterMap("translation"))
+    elastix_image_filter.Execute()
+    Sitk.WriteImage(elastix_image_filter.GetResultImage(), coreg_img)
+    return coreg_img
 
 
 def normalize_vol(output_path, path_vol, threshold):
@@ -72,3 +66,12 @@ def normalize_vol(output_path, path_vol, threshold):
     normalized_filename = os.path.join(output_path, "normalized", "normalized_" + filename)
     nib.save(nifti_out, normalized_filename)
     return normalized_filename
+
+
+def get_histo_img(self, datapath):
+    import os
+    img = [os.path.join(datapath, f) for f in os.listdir(datapath) if os.path.basename(f).lower().startswith('histo')]
+    if len(img) != 1:
+        raise IOError(str(len(img)) + ' image(s) histological images found for ' + self.name)
+    else:
+        return img[0]

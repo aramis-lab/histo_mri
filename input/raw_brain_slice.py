@@ -6,6 +6,8 @@ class BrainSlice:
     List of attributes :
     name :          name of the brain slice
     file_paths :    dictionary representing the different modalities
+    path_to_data :  path to where the data are stored
+    histo_path :    path to the histological cut
     """
     def __init__(self, path_to_data):
         from utils import identify_modality
@@ -14,6 +16,12 @@ class BrainSlice:
         self.path_to_data = path_to_data
         self.name = os.path.basename(path_to_data)
         self.file_paths = identify_modality(path_to_data)
+        histo_img = [os.path.join(self.path_to_data, f)
+                     for f in os.listdir(self.path_to_data)
+                     if os.path.basename(f).lower().startswith('histo')]
+        if len(histo_img) != 1:
+            raise IOError(str(len(histo_img)) + ' image(s) histological images found for ' + self.name)
+        self.histo_path = histo_img[0]
 
     def __repr__(self):
         s = (' ** Raw Brain Slice ' + self.name + ' **\n')
