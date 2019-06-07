@@ -52,7 +52,48 @@ class InterModalityMatching:
                    header=str(compute_nmi(preprocessed_brain, self.transformation_matrix)))
         print('File ' + output_file + ' sucessfully saved !')
 
+    # To check implement
+    def display_best_coreg(self):
+
+        import numpy as np
+        from matplotlib import pyplot as plt
+        from skimage.transform import SimilarityTransform
+        from skimage.transform import warp
+        from scipy.misc import imsave
+        import os
+
+        img_folder = os.path.join(self.path, 'similarity_transform', 'img')
+        if not os.path.exists(img_folder):
+            os.makedirs(img_folder)
+        sum_of_mr = np.zeros(self.data["t2s"].shape, dtype=self.data["t2s"].dtype)
+        for modality in self.files:
+            sum_of_mr += self.data[modality]
+        sum_of_mr[sum_of_mr != sum_of_mr] = 0
+        imsave(os.path.join(img_folder, 'sum_of_mr.png'), sum_of_mr)
+
+        cols = 3
+        myfig = plt.figure(5)
+        grayscale_histo = np.mean(np.array(self.histo_img), axis=2)
+        myfig.suptitle('Coregistration estimation - choose best')
+        n_img = self.get_n_files(os.path.join(self.path, 'similarity_transform'))
+        rows = np.int(np.ceil(n_img/cols))
+        matrix_files = self.get_matrix_files()
+        for n in range(len(matrix_files)):
+            sim_matrix = np.loadtxt(matrix_files[n], delimiter=',')
+            sim_transf = SimilarityTransform(matrix=sim_matrix)
+            w_histo = warp(grayscale_histo, sim_transf, output_shape=self.data['t2s'].shape, order=1)
+            imsave(os.path.join(img_folder, str(n) + '.png'), w_histo)
+            with open(matrix_files[n]) as files:
+                for line in files:
+                    if line.startswith('#'):
+                        nmi_score = line[1:]
+            plt.subplot(rows, cols, n + 1)
+            plt.imshow(w_histo + self.data["t1"])
+            plt.axis('off')
+
+            plt.title('nmi score = ' + nmi_score, fontsize=6)
+        plt.show()
 
 if __name__ == '__main__':
     tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
-    realignment = InterModalityMatching(tg03, create_new_transformation=True)
+    realignment = InterModalityMatching(tg03, create_new_transformation=False)
