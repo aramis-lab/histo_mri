@@ -4,6 +4,10 @@ from utils import identify_modality, coregister, normalize_vol
 from algorithms.algo_utils import get_mask_data
 import nibabel as nib
 import numpy as np
+from colorama import Fore
+import warnings
+
+warnings.filterwarnings('ignore')
 
 
 class PreprocessedBrainSlice(BrainSlice):
@@ -33,7 +37,10 @@ class PreprocessedBrainSlice(BrainSlice):
         self.file_paths = identify_modality(os.path.join(path, 'coreg_with_' + self.coreg_reference))
 
         # Mask unused data using t2s ref
-        self.apply_mask_on_mri('t2s')
+        try:
+            self.apply_mask_on_mri('t2s')
+        except ValueError:
+            print(Fore.RED + 'Seemingly, mask is already applied' + Fore.RESET)
 
     def __repr__(self):
         return '*** Preprocessed Brain Slice *** \n' + 'is_coregistered : ' + str(self.is_coregistered) + '\n' +\
@@ -74,7 +81,7 @@ class PreprocessedBrainSlice(BrainSlice):
             self.file_paths[modality] = normalize_vol(self.path_to_data, self.file_paths[modality], threshold)
 
     def apply_mask_on_mri(self, ref):
-        mask_outlyers = get_mask_data(self.file_paths[ref])
+        mask_outlyers = get_mask_data(self.file_paths[ref], display=False)
         for modality in self.file_paths:
             nifti = nib.load(self.file_paths[modality])
             data = nifti.get_data()

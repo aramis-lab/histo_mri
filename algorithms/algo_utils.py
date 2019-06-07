@@ -1,4 +1,4 @@
-def get_mask_data(ref, kernel_size=15, display=False):
+def get_mask_data(ref, kernel_size=15, display=True):
 
     from matplotlib import pyplot as plt
     import numpy as np
@@ -40,7 +40,7 @@ def get_mask_data(ref, kernel_size=15, display=False):
         myfig.suptitle("masking data for using std metrics on " + basename(ref), fontsize=fsize)
 
         plt.subplot(3, 3, 1)
-        subplt = plt.imshow(ref, cmap='gray')
+        subplt = plt.imshow(ref_np, cmap='gray')
         subplt.axes.get_xaxis().set_visible(False)
         subplt.axes.get_yaxis().set_visible(False)
         plt.title(ref, fontsize=fsize)
@@ -53,7 +53,7 @@ def get_mask_data(ref, kernel_size=15, display=False):
                   fontsize=fsize)
 
         plt.subplot(3, 3, 3)
-        subplt = plt.hist(measure.ravel(), bins=500, range=(np.nanmin(measure), np.nanmax(measure)), fc='k', ec='k')
+        plt.hist(measure.ravel(), bins=500, range=(np.nanmin(measure), np.nanmax(measure)), fc='k', ec='k')
         plt.title("Histogram of measure - Otsu threshold = " + str(otsu_val), fontsize=fsize)
 
         plt.subplot(3, 3, 4)
@@ -85,4 +85,63 @@ def get_mask_data(ref, kernel_size=15, display=False):
         subplt.axes.get_xaxis().set_visible(False)
         subplt.axes.get_yaxis().set_visible(False)
         plt.title("final image", fontsize=fsize)
+
+        plt.show()
     return final_roi
+
+
+def register_histo(histo_img, preprocessed_mr_images, ref='t1', n_points=7):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from skimage.transform import SimilarityTransform
+    from skimage.transform import warp
+    from matplotlib.pyplot import ginput
+    import nibabel as nib
+    from colorama import Fore
+
+    grayscale_histo = np.mean(histo_img, axis=2)
+    reference = nib.load(preprocessed_mr_images.file_paths[ref]).get_data()
+
+    myfig = plt.figure(4)
+    myfig.suptitle("Select corresponding landmarks (" + str(n_points) + ") for similarity transform !")
+
+    plt.subplot(1, 2, 1)
+    plt.imshow(grayscale_histo, cmap="gray")
+    x_histo = ginput(n_points, timeout=0)
+    print("Selected points for histological cut:")
+    x_histo = np.array(x_histo)
+    print(x_histo)
+
+    plt.subplot(1, 2, 2)
+    plt.imshow(reference, cmap="gray")
+    x_mr = ginput(n_points, timeout=0)
+    print("Selected points for " + ref + ":")
+    x_mr = np.array(x_mr)
+    print(x_mr)
+
+    sim_transform = SimilarityTransform()
+    sim_transform.estimate(x_mr, x_histo)
+    print(Fore.GREEN + "Parameter estimation - transformation matrix: " + Fore.RESET)
+    print(sim_transform.params)
+    warped = warp(grayscale_histo,
+                  sim_transform,
+                  output_shape=reference.shape)
+    # grayscale_histo = grayscale_histo.astype('float32')
+    return sim_transform.params, warped
+
+
+def compute_nmi(preprocessed_brain, transformation_matrix):
+    from skimage.transform import warp
+    from sklearn.metrics.cluster import adjusted_mutual_info_score
+    import nibabel as nib
+    from PIL import Image
+    import numpy as np
+
+    ref = nib.load(preprocessed_brain.file_paths["t2s"]).get_data()
+    sum_of_mr = np.zeros(ref.shape, dtype=ref.dtype)
+    for modality in preprocessed_brain.file_paths:
+        sum_of_mr += nib.load(preprocessed_brain.file_paths[modality]).get_data()
+    sum_of_mr[sum_of_mr != sum_of_mr] = 0
+    grayscale_histo = np.mean(np.array(Image.open(preprocessed_brain.histo_path)), axis=2)
+    w_grayscale_histo = warp(grayscale_histo, transformation_matrix, output_shape=sum_of_mr.shape)
+    return adjusted_mutual_info_score(np.ravel(w_grayscale_histo.astype(int)), np.ravel(sum_of_mr.astype(int)))
