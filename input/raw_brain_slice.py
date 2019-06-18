@@ -1,5 +1,5 @@
 import os
-
+import nibabel as nib
 
 class BrainSlice:
     """
@@ -22,6 +22,7 @@ class BrainSlice:
         if len(histo_img) != 1:
             raise IOError(str(len(histo_img)) + ' image(s) histological images found for ' + self.name)
         self.histo_path = histo_img[0]
+        self.mr_dtype = nib.load(self.file_paths['t2s']).get_data().dtype
 
     def __repr__(self):
         s = (' ** Raw Brain Slice ' + self.name + ' **\n')

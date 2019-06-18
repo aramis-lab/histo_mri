@@ -36,6 +36,8 @@ class PreprocessedBrainSlice(BrainSlice):
         # Grab filenames
         self.file_paths = identify_modality(os.path.join(path, 'coreg_with_' + self.coreg_reference))
 
+        self.mr_shape = nib.load(self.file_paths['t2s']).get_data().shape
+
         # Mask unused data using t2s ref
         try:
             self.apply_mask_on_mri('t2s')
