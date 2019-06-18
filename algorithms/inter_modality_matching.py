@@ -27,7 +27,7 @@ class InterModalityMatching:
             self.transformation_matrix = self.choose_best_transformation(join(preprocessed.path_to_data,
                                                                               'similarity_transform'))
 
-        self.display_best_coreg(preprocessed)
+        #self.display_best_coreg(preprocessed)
 
     @staticmethod
     def choose_best_transformation(similarity_folder):
