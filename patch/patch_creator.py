@@ -4,6 +4,10 @@ from sklearn.feature_extraction import image
 import numpy as np
 import nibabel as nib
 from colorama import Fore
+import matplotlib.pyplot as plt
+import matplotlib.patches as ptc
+from PIL import Image
+import copy
 
 
 class PatchCreator:
@@ -22,7 +26,7 @@ class PatchCreator:
         self.input_patches = self.extract_patches(processed_brainslice, patch_shape)
         self.mri_coordinates = self.get_mri_patches_coordinates(processed_brainslice.mr_shape, patch_shape)
 
-        ## Step to remove OOB patches
+        # Step to remove OOB patches
         # input_patches is an array, mri_coordinates is a list
         non_usable_patch = [i for i in range(self.input_patches.shape[0])
                             if np.sum(self.input_patches[i] != self.input_patches[i]) > 0]
@@ -43,6 +47,25 @@ class PatchCreator:
 
         print('Number of patches kept : ' + str(len(self.input_patches)))
 
+    def draw_rectangle(self, n_rect, brain_slice):
+
+        def reshape_rectangles(list_coordinates):
+            res = np.zeros((4, 2))
+            for i, c in enumerate(list_coordinates):
+                res[i, :] = np.array(c)
+            return res
+
+        fig, ax = plt.subplots()
+        ax.imshow(nib.load(brain_slice.file_paths['t2s']).get_data(), cmap='gray')
+        circle_mr = ptc.Polygon(reshape_rectangles(self.mri_coordinates[n_rect]),
+                                alpha=0.2)
+        ax.add_patch(circle_mr)
+
+        fig2, ax2 = plt.subplots()
+        ax2.imshow(np.array(Image.open(brain_slice.histo_path)))
+        circle_hist = ptc.Polygon(reshape_rectangles(self.histo_coordinates[n_rect]),
+                                  alpha=0.2)
+        ax2.add_patch(circle_hist)
 
     @staticmethod
     def get_idx_oob_histo_patches(histo_coordinates, img_shape):
@@ -101,6 +124,8 @@ class PatchCreator:
         :param transformation_matrix: transformation matrix from mri_coordinates to histo_coordinates
         :return: histo_coordinates
         """
+        local_copy_mri_coordinates = copy.deepcopy(mri_coordinates)
+
         def transform_to_histo(coordinate):
             result = []
             for co in coordinate:
@@ -109,7 +134,7 @@ class PatchCreator:
                                            np.transpose(np.array(co)))[0:2]))
             return result
 
-        return [transform_to_histo(coord) for coord in mri_coordinates]
+        return [transform_to_histo(coord) for coord in local_copy_mri_coordinates]
 
     @staticmethod
     def get_mri_patches_coordinates(img_shape, patch_shape):
@@ -143,3 +168,5 @@ if __name__ == '__main__':
     tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
     realignment = InterModalityMatching(tg03, create_new_transformation=False)
     pt = PatchCreator(tg03, realignment, (32, 32))
+    # Make it work !!
+    pt.draw_rectangle(1000, tg03)
