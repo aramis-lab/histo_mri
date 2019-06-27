@@ -3,7 +3,7 @@ from algorithms.inter_modality_matching import InterModalityMatching
 from sklearn.feature_extraction import image
 import numpy as np
 import nibabel as nib
-import copy
+from colorama import Fore
 
 
 class PatchCreator:
@@ -18,18 +18,42 @@ class PatchCreator:
     """
 
     def __init__(self, processed_brainslice, mod_matching, patch_shape):
+        print(Fore.GREEN + ' * Starting creation of patches for ' + processed_brainslice.name + Fore.RESET)
         self.input_patches = self.extract_patches(processed_brainslice, patch_shape)
         self.mri_coordinates = self.get_mri_patches_coordinates(processed_brainslice.mr_shape, patch_shape)
 
-        # Step to remove OOB patches
+        ## Step to remove OOB patches
         # input_patches is an array, mri_coordinates is a list
         non_usable_patch = [i for i in range(self.input_patches.shape[0])
                             if np.sum(self.input_patches[i] != self.input_patches[i]) > 0]
+
+        print(Fore.YELLOW + str(len(non_usable_patch))
+              + ' patches contained np.nan object. They are not relevant for the analysis' + Fore.RESET)
         self.input_patches = np.delete(self.input_patches, non_usable_patch, axis=0)
         self.mri_coordinates = [elem for i, elem in enumerate(self.mri_coordinates) if i not in non_usable_patch]
 
         self.histo_coordinates = self.get_histo_patches_coordinates(self.mri_coordinates,
                                                                     mod_matching.transformation_matrix)
+
+        oob_histo_patches = self.get_idx_oob_histo_patches(self.histo_coordinates, processed_brainslice.histo_shape)
+        print(Fore.YELLOW + str(len(oob_histo_patches))
+              + ' patches were out of bound when transformed into the histological space.' + Fore.RESET)
+        self.input_patches = np.delete(self.input_patches, oob_histo_patches, axis=0)
+        self.mri_coordinates = [elem for i, elem in enumerate(self.mri_coordinates) if i not in oob_histo_patches]
+
+        print('Number of patches kept : ' + str(len(self.input_patches)))
+
+
+    @staticmethod
+    def get_idx_oob_histo_patches(histo_coordinates, img_shape):
+        def is_oob_coordinate(coordinates):
+            min_dim = np.min(np.array(coordinates), axis=0)
+            max_dim = np.max(np.array(coordinates), axis=0)
+            if any(dim < 0 for dim in min_dim) or img_shape[0] < max_dim[0] - 1 or img_shape[1] < max_dim[1] - 1:
+                return False
+            else:
+                return True
+        return [i for i, coord in enumerate(histo_coordinates) if is_oob_coordinate(coord)]
 
     @staticmethod
     def extract_patches(processed_brainslice, p_shape):
@@ -72,6 +96,11 @@ class PatchCreator:
 
     @staticmethod
     def get_histo_patches_coordinates(mri_coordinates, transformation_matrix):
+        """
+        :param mri_coordinates: list (list of 4 coordinates) defining the rectangle of the patch
+        :param transformation_matrix: transformation matrix from mri_coordinates to histo_coordinates
+        :return: histo_coordinates
+        """
         def transform_to_histo(coordinate):
             result = []
             for co in coordinate:
