@@ -44,6 +44,7 @@ class PatchCreator:
               + ' patches were out of bound when transformed into the histological space.' + Fore.RESET)
         self.input_patches = np.delete(self.input_patches, oob_histo_patches, axis=0)
         self.mri_coordinates = [elem for i, elem in enumerate(self.mri_coordinates) if i not in oob_histo_patches]
+        self.histo_coordinates = [elem for i, elem in enumerate(self.histo_coordinates) if i not in oob_histo_patches]
 
         print('Number of patches kept : ' + str(len(self.input_patches)))
 
@@ -53,7 +54,17 @@ class PatchCreator:
             res = np.zeros((4, 2))
             for i, c in enumerate(list_coordinates):
                 res[i, :] = np.array(c)
-            return res
+
+            # Following line transform
+            # array([[y1, x1],
+            #        [y2, x2],
+            #        [y3, x3],
+            #        [y4, x4]])
+            # into  array([[x1, y1],
+            #              [x2, y2],
+            #              [x3, y3],
+            #              [x4, y4]])
+            return np.transpose(np.transpose(res)[[1, 0]])
 
         fig, ax = plt.subplots()
         ax.imshow(nib.load(brain_slice.file_paths['t2s']).get_data(), cmap='gray')
@@ -73,9 +84,9 @@ class PatchCreator:
             min_dim = np.min(np.array(coordinates), axis=0)
             max_dim = np.max(np.array(coordinates), axis=0)
             if any(dim < 0 for dim in min_dim) or img_shape[0] < max_dim[0] - 1 or img_shape[1] < max_dim[1] - 1:
-                return False
-            else:
                 return True
+            else:
+                return False
         return [i for i, coord in enumerate(histo_coordinates) if is_oob_coordinate(coord)]
 
     @staticmethod
@@ -129,9 +140,12 @@ class PatchCreator:
         def transform_to_histo(coordinate):
             result = []
             for co in coordinate:
+                # Transform coordinate (i,j) into array(x,y,1) where i = y and j = x
                 co.append(1.0)
+                co = np.array(co)
+                co = co[[1, 0, 2]]
                 result.append(tuple(np.dot(transformation_matrix,
-                                           np.transpose(np.array(co)))[0:2]))
+                                           np.transpose(co))[0:2][[1, 0]]))
             return result
 
         return [transform_to_histo(coord) for coord in local_copy_mri_coordinates]
@@ -150,17 +164,14 @@ class PatchCreator:
         patch_height = patch_shape[0]
         patch_width = patch_shape[1]
 
-        (i, j) = (0, 0)
         coordinates = []
-        while i <= img_height - patch_height:
-            while j <= img_width - patch_width:
+        for i in range(img_height - patch_height + 1):
+            for j in range(img_width - patch_width + 1):
                 coordinates.append([[i, j],
                                     [i, j + patch_width - 1],
                                     [i + patch_height - 1, j + patch_width - 1],
                                     [i + patch_height - 1, j]])
-                j = j + 1
-            j = 0
-            i = i + 1
+
         return coordinates
 
 
@@ -168,5 +179,7 @@ if __name__ == '__main__':
     tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
     realignment = InterModalityMatching(tg03, create_new_transformation=False)
     pt = PatchCreator(tg03, realignment, (32, 32))
-    # Make it work !!
     pt.draw_rectangle(1000, tg03)
+
+    # Extract idx_underlying_mask but pay attention to order (i,j) vs (x,y)
+    # Must use (x,y) to use Draw module 
