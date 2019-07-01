@@ -1,5 +1,6 @@
 from input.preprocessed_brain_slice import PreprocessedBrainSlice
 from algorithms.inter_modality_matching import InterModalityMatching
+from algorithms.algo_utils import save_object, load_object
 from sklearn.feature_extraction import image
 import numpy as np
 import nibabel as nib
@@ -8,6 +9,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as ptc
 from PIL import Image
 import copy
+from os.path import join
+from time import time
 
 
 class PatchCreator:
@@ -23,6 +26,8 @@ class PatchCreator:
 
     def __init__(self, processed_brainslice, mod_matching, patch_shape):
         print(Fore.GREEN + ' * Starting creation of patches for ' + processed_brainslice.name + Fore.RESET)
+        # Count elapsed time for patch generation
+        t1 = time()
         self.input_patches = self.extract_patches(processed_brainslice, patch_shape)
         self.mri_coordinates = self.get_mri_patches_coordinates(processed_brainslice.mr_shape, patch_shape)
 
@@ -47,6 +52,8 @@ class PatchCreator:
         self.histo_coordinates = [elem for i, elem in enumerate(self.histo_coordinates) if i not in oob_histo_patches]
 
         print('Number of patches kept : ' + str(len(self.input_patches)))
+        t2 = time()
+        print('Elapsed time for patch generation : ' + str(t2 - t1) + ' s')
 
     def draw_rectangle(self, n_rect, brain_slice):
 
@@ -176,10 +183,17 @@ class PatchCreator:
 
 
 if __name__ == '__main__':
-    tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
-    realignment = InterModalityMatching(tg03, create_new_transformation=False)
-    pt = PatchCreator(tg03, realignment, (32, 32))
-    pt.draw_rectangle(1000, tg03)
+    # tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
+    # realignment = InterModalityMatching(tg03, create_new_transformation=False)
+    # pt = PatchCreator(tg03, realignment, (32, 32))
+    # pt.draw_rectangle(1600, tg03)
+    #
+    # # Save in output_dir
+    output_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/tg03'
+    # save_object(tg03, join(output_dir, 'TG03'))
+    # save_object(realignment, join(output_dir, 'realignment'))
+    # save_object(pt, join(output_dir, 'patches'))
 
-    # Extract idx_underlying_mask but pay attention to order (i,j) vs (x,y)
-    # Must use (x,y) to use Draw module 
+    tg03 = load_object(join(output_dir, 'TG03'))
+    realignment = load_object(join(output_dir, 'realignment'))
+    patches = load_object(join(output_dir, 'patches'))

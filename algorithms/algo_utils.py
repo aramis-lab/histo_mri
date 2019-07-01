@@ -145,3 +145,22 @@ def compute_nmi(preprocessed_brain, transformation_matrix):
     grayscale_histo = np.mean(np.array(Image.open(preprocessed_brain.histo_path)), axis=2)
     w_grayscale_histo = warp(grayscale_histo, transformation_matrix, output_shape=sum_of_mr.shape)
     return adjusted_mutual_info_score(np.ravel(w_grayscale_histo.astype(int)), np.ravel(sum_of_mr.astype(int)))
+
+
+def save_object(obj, output_name):
+    import pickle
+
+    assert isinstance(output_name, str), '2nd argument of save_object() must be a str !'
+
+    with open(output_name, 'wb') as output:
+        pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
+
+
+def load_object(filename):
+    import pickle
+    from os.path import isfile
+
+    assert isinstance(filename, str), 'You must provide a str as argument of load_object function.'
+    assert isfile(filename), 'The given path is not an existing file.'
+    with open(filename, 'rb') as input:
+        return pickle.load(input)
