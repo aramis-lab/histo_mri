@@ -1,5 +1,6 @@
 from input.preprocessed_brain_slice import PreprocessedBrainSlice
 from algorithms.inter_modality_matching import InterModalityMatching
+from algorithms.algo_utils import extract_idx_underlying_mask
 from algorithms.algo_utils import save_object, load_object
 from sklearn.feature_extraction import image
 import numpy as np
@@ -9,8 +10,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as ptc
 from PIL import Image
 import copy
-from os.path import join
+from multiprocessing import Pool, cpu_count, Value
+from os.path import join, isfile
 from time import time
+from functools import partial
 
 
 class PatchCreator:
@@ -181,10 +184,38 @@ class PatchCreator:
 
         return coordinates
 
+    @staticmethod
+    def get_label(histo_coordinates, labelized_img):
+        assert isinstance(labelized_img, np.ndarray), 'labelized_img must be a numpy.ndarray'
+        histo_idx = extract_idx_underlying_mask(histo_coordinates)
+        intensity_list = labelized_img[histo_idx]
+        # np.bincount 10 times faster than Counter(intensity_list).most_common()[0][0]
+        return np.bincount(intensity_list).argmax()
+
+    def estimate_labels(self, labelized_img_path):
+
+        label_img = np.load(labelized_img_path)
+        get_label_partial = partial(self.get_label, labelized_img=label_img)
+
+        # Multiprocessing
+        pool = Pool(processes=cpu_count())
+
+        # Empirically determine chunksize. If elapsed time not consistent with 0 .22 sec, try around 500
+        n_chunksize = len(self.histo_coordinates) // cpu_count()
+        if n_chunksize * cpu_count() != len(self.histo_coordinates):
+            n_chunksize += 1
+        t1 = time()
+        labels = list(pool.map(get_label_partial, self.histo_coordinates, chunksize=len(self.histo_coordinates) // cpu_count()))
+        pool.close()
+        t2 = time()
+        print('Elapsed time per coordinates for pool.map (average): ' + str((t2 - t1) / len(self.histo_coordinates)) + ' sec')
+
+        return labels
+
 
 if __name__ == '__main__':
     # tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
-    # realignment = InterModalityMatching(tg03, create_new_transformation=False)
+    # realignment = InterModalityMatching(tg03, create_new_transformation=False)'/Users/arnaud.marcoux/histo_mri/images/TG03/segmentation.npy'
     # pt = PatchCreator(tg03, realignment, (32, 32))
     # pt.draw_rectangle(1600, tg03)
     #
@@ -197,3 +228,29 @@ if __name__ == '__main__':
     tg03 = load_object(join(output_dir, 'TG03'))
     realignment = load_object(join(output_dir, 'realignment'))
     patches = load_object(join(output_dir, 'patches'))
+
+    mylabels = patches.estimate_labels('/Users/arnaud.marcoux/histo_mri/images/TG03/segmentation.npy')
+    save_object(mylabels, join(output_dir, 'labels'))
+
+# # Target : less than 0.035 s per element
+# N = 5000
+#
+# # For loop
+# t1 = time()
+# labels = []
+# for element in self.histo_coordinates[:N]:
+#     pass
+#     #labels.append(get_label_partial(element))
+#     #labels.append(self.get_label(element, label_img))
+# t2 = time()
+# print('Elapsed time per coordinates for loop (average): ' + str((t2 - t1)/N) + ' sec')
+#
+# # Map
+# #labels2 = list(map(get_label_partial, self.histo_coordinates[:N]))
+# t3 = time()
+# print('Elapsed time per coordinates for map (average): ' + str((t3 - t2) / N) + ' sec')
+#
+# # Comprehensive lists
+# #labels3 = [get_label_partial(elem) for elem in self.histo_coordinates[:N]]
+# t4 = time()
+# print('Elapsed time per coordinates for comprehensive list (average): ' + str((t4 - t3) / N) + ' sec')

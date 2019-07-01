@@ -1,14 +1,21 @@
-def get_mask_data(ref, kernel_size=15, display=True):
+import numpy as np
+from os.path import basename, isfile
+import matplotlib.pyplot as plt
+import pickle
+from colorama import Fore
+import nibabel as nib
+from PIL import Image, ImageDraw
+from scipy.ndimage.filters import generic_filter
+from skimage.filters import threshold_otsu
+from scipy.ndimage.measurements import label
+from skimage.morphology import binary_dilation
+from skimage.morphology import binary_erosion
+from skimage.transform import SimilarityTransform
+from skimage.transform import warp
+from sklearn.metrics.cluster import adjusted_mutual_info_score
 
-    from matplotlib import pyplot as plt
-    import numpy as np
-    from os.path import basename
-    from scipy.ndimage.filters import generic_filter
-    from skimage.filters import threshold_otsu
-    from scipy.ndimage.measurements import label
-    from skimage.morphology import binary_dilation
-    from skimage.morphology import binary_erosion
-    import nibabel as nib
+
+def get_mask_data(ref, kernel_size=15, display=True):
 
     ref_np = nib.load(ref).get_data()
 
@@ -91,13 +98,6 @@ def get_mask_data(ref, kernel_size=15, display=True):
 
 
 def register_histo(histo_img, preprocessed_mr_images, ref='t1', n_points=7):
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from skimage.transform import SimilarityTransform
-    from skimage.transform import warp
-    from matplotlib.pyplot import ginput
-    import nibabel as nib
-    from colorama import Fore
 
     grayscale_histo = np.mean(histo_img, axis=2)
     reference = nib.load(preprocessed_mr_images.file_paths[ref]).get_data()
@@ -107,14 +107,14 @@ def register_histo(histo_img, preprocessed_mr_images, ref='t1', n_points=7):
 
     plt.subplot(1, 2, 1)
     plt.imshow(grayscale_histo, cmap="gray")
-    x_histo = ginput(n_points, timeout=0)
+    x_histo = plt.ginput(n_points, timeout=0)
     print("Selected points for histological cut:")
     x_histo = np.array(x_histo)
     print(x_histo)
 
     plt.subplot(1, 2, 2)
     plt.imshow(reference, cmap="gray")
-    x_mr = ginput(n_points, timeout=0)
+    x_mr = plt.ginput(n_points, timeout=0)
     print("Selected points for " + ref + ":")
     x_mr = np.array(x_mr)
     print(x_mr)
@@ -131,11 +131,6 @@ def register_histo(histo_img, preprocessed_mr_images, ref='t1', n_points=7):
 
 
 def compute_nmi(preprocessed_brain, transformation_matrix):
-    from skimage.transform import warp
-    from sklearn.metrics.cluster import adjusted_mutual_info_score
-    import nibabel as nib
-    from PIL import Image
-    import numpy as np
 
     ref = nib.load(preprocessed_brain.file_paths["t2s"]).get_data()
     sum_of_mr = np.zeros(ref.shape, dtype=ref.dtype)
@@ -147,8 +142,26 @@ def compute_nmi(preprocessed_brain, transformation_matrix):
     return adjusted_mutual_info_score(np.ravel(w_grayscale_histo.astype(int)), np.ravel(sum_of_mr.astype(int)))
 
 
+def extract_idx_underlying_mask(rect_coordinates):
+
+    min_dim = np.min(np.array(rect_coordinates), axis=0)
+    max_dim = np.max(np.array(rect_coordinates), axis=0)
+    bounding_box_shape = tuple((max_dim - min_dim).astype(int))
+    eps = (max_dim - min_dim).astype(int) - (max_dim - min_dim)
+    new_rect_coordinates = [tuple(np.array(el) - min_dim)
+                            for el in rect_coordinates]
+    img = Image.new('1', bounding_box_shape, 0)
+    ImageDraw.Draw(img).polygon(new_rect_coordinates,
+                                outline=1,
+                                fill=1)
+    idx = np.where(np.array(img))
+    idx = list(idx)
+    idx[0] = (idx[0] + min_dim[1] - eps[1]).astype(int)
+    idx[1] = (idx[1] + min_dim[0] - eps[0]).astype(int)
+    return tuple(idx)
+
+
 def save_object(obj, output_name):
-    import pickle
 
     assert isinstance(output_name, str), '2nd argument of save_object() must be a str !'
 
@@ -157,8 +170,6 @@ def save_object(obj, output_name):
 
 
 def load_object(filename):
-    import pickle
-    from os.path import isfile
 
     assert isinstance(filename, str), 'You must provide a str as argument of load_object function.'
     assert isfile(filename), 'The given path is not an existing file.'
