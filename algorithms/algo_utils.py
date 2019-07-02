@@ -148,16 +148,21 @@ def extract_idx_underlying_mask(rect_coordinates):
     max_dim = np.max(np.array(rect_coordinates), axis=0)
     bounding_box_shape = tuple((max_dim - min_dim).astype(int))
     eps = (max_dim - min_dim).astype(int) - (max_dim - min_dim)
+    # need to invert coordinates for the drawing (i,j) -> (x,y)
     new_rect_coordinates = [tuple(np.array(el) - min_dim)
                             for el in rect_coordinates]
-    img = Image.new('1', bounding_box_shape, 0)
-    ImageDraw.Draw(img).polygon(new_rect_coordinates,
-                                outline=1,
+    new_rect_coordinates_xy = [elem[::-1] for elem in new_rect_coordinates]
+    # Shape must indicate (width, height) so (i,j)[::-1] = (j,i) = (x,y)
+    img = Image.new('1', bounding_box_shape[::-1], 0)
+    ImageDraw.Draw(img).polygon(new_rect_coordinates_xy,
+                                outline=0,
                                 fill=1)
     idx = np.where(np.array(img))
     idx = list(idx)
-    idx[0] = (idx[0] + min_dim[1] - eps[1]).astype(int)
-    idx[1] = (idx[1] + min_dim[0] - eps[0]).astype(int)
+    idx[0] = (idx[0] + min_dim[0] - eps[0]).astype(int)
+    idx[1] = (idx[1] + min_dim[1] - eps[1]).astype(int)
+    # Revert order to (i,j) convention, but this does not make any sense, because np.where is supposed
+    # to give it in correct order !!
     return tuple(idx)
 
 

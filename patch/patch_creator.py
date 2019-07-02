@@ -204,53 +204,32 @@ class PatchCreator:
         n_chunksize = len(self.histo_coordinates) // cpu_count()
         if n_chunksize * cpu_count() != len(self.histo_coordinates):
             n_chunksize += 1
+        print('Begin pooling with ' + str(cpu_count()) + ' workers - chunksize ' + str(n_chunksize))
         t1 = time()
-        labels = list(pool.map(get_label_partial, self.histo_coordinates, chunksize=len(self.histo_coordinates) // cpu_count()))
+        labels = list(pool.map(get_label_partial, self.histo_coordinates, chunksize=n_chunksize))
         pool.close()
         t2 = time()
         print('Elapsed time per coordinates for pool.map (average): ' + str((t2 - t1) / len(self.histo_coordinates)) + ' sec')
-
+        print('Total elapsed time : ' + str(t2 - t1) + 'sec')
         return labels
 
 
 if __name__ == '__main__':
     # tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
-    # realignment = InterModalityMatching(tg03, create_new_transformation=False)'/Users/arnaud.marcoux/histo_mri/images/TG03/segmentation.npy'
+    # realignment = InterModalityMatching(tg03, create_new_transformation=False)
     # pt = PatchCreator(tg03, realignment, (32, 32))
-    # pt.draw_rectangle(1600, tg03)
-    #
-    # # Save in output_dir
+    # # pt.draw_rectangle(1600, tg03)
+    # mylabels = pt.estimate_labels('/Users/arnaud.marcoux/histo_mri/images/TG03/segmentation.npy')
+    
+    # # # Save in output_dir
     output_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/tg03'
     # save_object(tg03, join(output_dir, 'TG03'))
     # save_object(realignment, join(output_dir, 'realignment'))
     # save_object(pt, join(output_dir, 'patches'))
+    # save_object(mylabels, join(output_dir, 'labels'))
 
     tg03 = load_object(join(output_dir, 'TG03'))
     realignment = load_object(join(output_dir, 'realignment'))
     patches = load_object(join(output_dir, 'patches'))
+    mylabels = load_object(join(output_dir, 'labels'))
 
-    mylabels = patches.estimate_labels('/Users/arnaud.marcoux/histo_mri/images/TG03/segmentation.npy')
-    save_object(mylabels, join(output_dir, 'labels'))
-
-# # Target : less than 0.035 s per element
-# N = 5000
-#
-# # For loop
-# t1 = time()
-# labels = []
-# for element in self.histo_coordinates[:N]:
-#     pass
-#     #labels.append(get_label_partial(element))
-#     #labels.append(self.get_label(element, label_img))
-# t2 = time()
-# print('Elapsed time per coordinates for loop (average): ' + str((t2 - t1)/N) + ' sec')
-#
-# # Map
-# #labels2 = list(map(get_label_partial, self.histo_coordinates[:N]))
-# t3 = time()
-# print('Elapsed time per coordinates for map (average): ' + str((t3 - t2) / N) + ' sec')
-#
-# # Comprehensive lists
-# #labels3 = [get_label_partial(elem) for elem in self.histo_coordinates[:N]]
-# t4 = time()
-# print('Elapsed time per coordinates for comprehensive list (average): ' + str((t4 - t3) / N) + ' sec')
