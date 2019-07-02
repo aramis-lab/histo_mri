@@ -27,7 +27,7 @@ class PatchCreator:
     self.labels                   : length = n_samples, labels of corresponding rectangles
     """
 
-    def __init__(self, processed_brainslice, mod_matching, patch_shape):
+    def __init__(self, processed_brainslice, mod_matching, patch_shape, labelized_img=None):
         print(Fore.GREEN + ' * Starting creation of patches for ' + processed_brainslice.name + Fore.RESET)
         # Count elapsed time for patch generation
         t1 = time()
@@ -57,6 +57,18 @@ class PatchCreator:
         print('Number of patches kept : ' + str(len(self.input_patches)))
         t2 = time()
         print('Elapsed time for patch generation : ' + str(t2 - t1) + ' s')
+
+        if labelized_img is not None:
+            assert isinstance(labelized_img, str), 'The labelized_img parameter must be a path (str) to the labels npy'
+            self.labels = self.estimate_labels(labelized_img)
+
+            # Patches that are labelled as background must be removed
+            idx_patches_background = [i for i, lab in enumerate(self.labels) if lab == 3]
+            self.input_patches = np.delete(self.input_patches, idx_patches_background, axis=0)
+            self.mri_coordinates = [elem for i, elem in enumerate(self.mri_coordinates)
+                                    if i not in idx_patches_background]
+            self.histo_coordinates = [elem for i, elem in enumerate(self.histo_coordinates)
+                                      if i not in idx_patches_background]
 
     def draw_rectangle(self, n_rect, brain_slice):
 
@@ -220,7 +232,7 @@ if __name__ == '__main__':
     # pt = PatchCreator(tg03, realignment, (32, 32))
     # # pt.draw_rectangle(1600, tg03)
     # mylabels = pt.estimate_labels('/Users/arnaud.marcoux/histo_mri/images/TG03/segmentation.npy')
-    
+
     # # # Save in output_dir
     output_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/tg03'
     # save_object(tg03, join(output_dir, 'TG03'))
@@ -231,5 +243,6 @@ if __name__ == '__main__':
     tg03 = load_object(join(output_dir, 'TG03'))
     realignment = load_object(join(output_dir, 'realignment'))
     patches = load_object(join(output_dir, 'patches'))
+    # labels outside of the class is deprecated
     mylabels = load_object(join(output_dir, 'labels'))
 
