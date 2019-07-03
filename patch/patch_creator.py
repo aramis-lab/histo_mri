@@ -38,7 +38,7 @@ class PatchCreator:
                                       'label_' + processed_brainslice.name.lower() + '.npy')
         assert isfile(self.labelized_img), 'File ' + labelized_img + ' not found'
 
-        print(Fore.GREEN + ' * Starting creation of patches for ' + processed_brainslice.name + Fore.RESET)
+        print(Fore.GREEN + '\n * Starting creation of patches for ' + processed_brainslice.name + Fore.RESET)
         # Count elapsed time for patch generation
         t1 = time()
         self.input_patches = self.extract_patches(processed_brainslice, patch_shape)
@@ -248,6 +248,7 @@ class PatchCreator:
 
 
 if __name__ == '__main__':
+
     output_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/tg03'
 
     tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')

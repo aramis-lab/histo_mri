@@ -64,7 +64,6 @@ class InterModalityMatching:
     @staticmethod
     def display_best_coreg(brain_slice):
 
-        assert isinstance(brain_slice, PreprocessedBrainSlice), 'Object given in arg is not a a PreprocessedBrainSlice'
         img_folder = os.path.join(brain_slice.path_to_data, 'similarity_transform', 'img')
         if not os.path.exists(img_folder):
             os.makedirs(img_folder)
