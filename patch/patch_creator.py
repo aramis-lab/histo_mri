@@ -8,7 +8,7 @@ import nibabel as nib
 from colorama import Fore
 import matplotlib.pyplot as plt
 import matplotlib.patches as ptc
-from PIL import Image
+from PIL import Image, ImageDraw
 import copy
 from multiprocessing import Pool, cpu_count, Value
 from os.path import join, isfile
@@ -28,6 +28,16 @@ class PatchCreator:
     """
 
     def __init__(self, processed_brainslice, mod_matching, patch_shape, labelized_img=None):
+
+        # This part is moved to the beginning to warn the user the ealiest possible in case of unfound labelization
+        if labelized_img is not None:
+            assert isinstance(labelized_img, str), 'The labelized_img parameter must be a path (str) to the labels npy'
+            self.labelized_img = labelized_img
+        else:
+            self.labelized_img = join(processed_brainslice.path_to_data,
+                                      'label_' + processed_brainslice.name.lower() + '.npy')
+        assert isfile(self.labelized_img), 'File ' + labelized_img + ' not found'
+
         print(Fore.GREEN + ' * Starting creation of patches for ' + processed_brainslice.name + Fore.RESET)
         # Count elapsed time for patch generation
         t1 = time()
@@ -58,17 +68,18 @@ class PatchCreator:
         t2 = time()
         print('Elapsed time for patch generation : ' + str(t2 - t1) + ' s')
 
-        if labelized_img is not None:
-            assert isinstance(labelized_img, str), 'The labelized_img parameter must be a path (str) to the labels npy'
-            self.labels = self.estimate_labels(labelized_img)
+        self.labels = self.estimate_labels(self.labelized_img)
 
-            # Patches that are labelled as background must be removed
-            idx_patches_background = [i for i, lab in enumerate(self.labels) if lab == 3]
-            self.input_patches = np.delete(self.input_patches, idx_patches_background, axis=0)
-            self.mri_coordinates = [elem for i, elem in enumerate(self.mri_coordinates)
-                                    if i not in idx_patches_background]
-            self.histo_coordinates = [elem for i, elem in enumerate(self.histo_coordinates)
-                                      if i not in idx_patches_background]
+        # Patches that are labelled as background must be removed
+        idx_patches_background = [i for i, lab in enumerate(self.labels) if lab == 3]
+        self.input_patches = np.delete(self.input_patches, idx_patches_background, axis=0)
+        self.mri_coordinates = [elem for i, elem in enumerate(self.mri_coordinates)
+                                if i not in idx_patches_background]
+        self.histo_coordinates = [elem for i, elem in enumerate(self.histo_coordinates)
+                                  if i not in idx_patches_background]
+
+        # Estimate what parts of the image have been covered
+        self.label_area = self.covered_area(processed_brainslice.histo_shape[:2], self.histo_coordinates)
 
     def draw_rectangle(self, n_rect, brain_slice):
 
@@ -225,24 +236,28 @@ class PatchCreator:
         print('Total elapsed time : ' + str(t2 - t1) + 'sec')
         return labels
 
+    @staticmethod
+    def covered_area(histo_shape, histo_coordinates):
+        # No conversion of coordinates here, we simply transpose the end result
+        covered_area = Image.new('1', histo_shape, 0)
+        for coord in histo_coordinates:
+            ImageDraw.Draw(covered_area).polygon(coord,
+                                                 outline=0,
+                                                 fill=1)
+        return np.transpose(np.array(covered_area))
+
 
 if __name__ == '__main__':
-    # tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
-    # realignment = InterModalityMatching(tg03, create_new_transformation=False)
-    # pt = PatchCreator(tg03, realignment, (32, 32))
-    # # pt.draw_rectangle(1600, tg03)
-    # mylabels = pt.estimate_labels('/Users/arnaud.marcoux/histo_mri/images/TG03/segmentation.npy')
-
-    # # # Save in output_dir
     output_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/tg03'
-    # save_object(tg03, join(output_dir, 'TG03'))
-    # save_object(realignment, join(output_dir, 'realignment'))
-    # save_object(pt, join(output_dir, 'patches'))
-    # save_object(mylabels, join(output_dir, 'labels'))
 
-    tg03 = load_object(join(output_dir, 'TG03'))
-    realignment = load_object(join(output_dir, 'realignment'))
-    patches = load_object(join(output_dir, 'patches'))
-    # labels outside of the class is deprecated
-    mylabels = load_object(join(output_dir, 'labels'))
+    tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
+    realignment = InterModalityMatching(tg03, create_new_transformation=False)
+    pt = PatchCreator(tg03, realignment, (32, 32))
+    save_object(tg03, join(output_dir, 'TG03'))
+    save_object(realignment, join(output_dir, 'realignment'))
+    save_object(pt, join(output_dir, 'patches'))
+
+    # tg03 = load_object(join(output_dir, 'TG03'))
+    # realignment = load_object(join(output_dir, 'realignment'))
+    # patches = load_object(join(output_dir, 'patches'))
 
