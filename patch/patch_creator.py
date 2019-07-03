@@ -69,14 +69,19 @@ class PatchCreator:
         print('Elapsed time for patch generation : ' + str(t2 - t1) + ' s')
 
         self.labels = self.estimate_labels(self.labelized_img)
-
         # Patches that are labelled as background must be removed
-        idx_patches_background = [i for i, lab in enumerate(self.labels) if lab == 3]
+        # labels :
+        # 0 : background
+        # 1 : dnf
+        # 2 : no-dnf
+        idx_patches_background = [i for i, lab in enumerate(self.labels) if lab == 0]
         self.input_patches = np.delete(self.input_patches, idx_patches_background, axis=0)
         self.mri_coordinates = [elem for i, elem in enumerate(self.mri_coordinates)
                                 if i not in idx_patches_background]
         self.histo_coordinates = [elem for i, elem in enumerate(self.histo_coordinates)
                                   if i not in idx_patches_background]
+        self.labels = [elem for i, elem in enumerate(self.labels)
+                       if i not in idx_patches_background]
 
         # Estimate what parts of the image have been covered
         self.label_area = self.covered_area(processed_brainslice.histo_shape[:2], self.histo_coordinates)

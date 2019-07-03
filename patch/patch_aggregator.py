@@ -25,7 +25,9 @@ class PatchAggregator:
             self.all_labels.extend(patch_creator.labels)
 
         # Check consistency
-        assert len(self.all_labels) == len(self.all_patches), 'Number of labels != number of patches'
+        if len(self.all_labels) != len(self.all_patches):
+            raise ValueError('Number of labels (' + str(len(self.all_labels))
+                             + ') != number of patches(' + str(len(self.all_patches)) + ')')
 
 
 if __name__ == '__main__':
@@ -58,5 +60,12 @@ if __name__ == '__main__':
     save_object(patches_wt05, '/Users/arnaud.marcoux/histo_mri/pickled_data/wt05/patches')
     save_object(patches_wt06, '/Users/arnaud.marcoux/histo_mri/pickled_data/wt06/patches')
 
+    patches_tg03 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/tg03/patches')
+    patches_wt03 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt03/patches')
+    patches_wt04 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt04/patches')
+    patches_wt05 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt05/patches')
+    patches_wt06 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt06/patches')
+
     mri_patches = PatchAggregator(patches_tg03, patches_wt03, patches_wt04, patches_wt05, patches_wt06)
     save_object(mri_patches, '/Users/arnaud.marcoux/histo_mri/pickled_data/aggregator_test')
+
