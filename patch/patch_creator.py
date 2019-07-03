@@ -86,6 +86,8 @@ class PatchCreator:
         # Estimate what parts of the image have been covered
         self.label_area = self.covered_area(processed_brainslice.histo_shape[:2], self.histo_coordinates)
 
+        print(Fore.GREEN + '** Final number of patches kept : ' + str(len(self.input_patches)) + ' **' + Fore.RESET)
+
     def draw_rectangle(self, n_rect, brain_slice):
 
         def reshape_rectangles(list_coordinates):
