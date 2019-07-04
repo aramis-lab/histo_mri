@@ -1,7 +1,8 @@
 import torch
 import numpy as np
 import torch.nn as nn
-from time import time
+from algo_utils import load_object
+from patch_aggregator import PatchAggregator
 
 
 class HistoNet(nn.Module):
@@ -47,3 +48,72 @@ class HistoNet(nn.Module):
         x = self.FC2(x)
         x = self.softmax(x)
         return x
+
+    def train_nn(self,
+                 train_images,
+                 train_labels,
+                 lr=0.01,
+                 n_epoch=5,
+                 batch_size=32,
+                 test_im=None,
+                 test_lab=None):
+
+        if train_images.shape[0] % batch_size != 0:
+            print('Recognized ' + str(train_images.shape[0]) + ' images but batch size is ' + str(batch_size)
+                  + '. Network needs number_of_images % batch_size == 0')
+            samples_to_add = batch_size - train_images.shape[0] % batch_size
+            train_images = torch.tensor(np.concatenate((train_images, train_images[:samples_to_add])), dtype=torch.float)
+            train_labels = torch.tensor(np.concatenate((train_labels, train_labels[:samples_to_add])), dtype=torch.long)
+            assert train_images.shape[0] % batch_size == 0, 'Something went wrong when concatenating train_images'
+
+        # Needed in case of hyperparameters tuning
+        self.apply(self.weight_reset)
+        optimizer = torch.optim.SGD(self.parameters(), lr=lr)
+        n_iter = np.int(np.floor(train_images.shape[0] / batch_size))
+        self._currently_training = True
+        accuracy = []
+        for epoch in range(n_epoch):
+            y_hat_train_label = np.empty(train_labels.shape)
+            y_hat_train_label[:] = np.nan
+            for m in range(n_iter):
+                optimizer.zero_grad()
+                output = self(train_images[m * batch_size: (m + 1) * batch_size])
+                loss = self.criterion(output, train_labels[m * batch_size: (m + 1) * batch_size])
+                loss.backward()
+                optimizer.step()
+
+                p_train_label_batch_numpy = output.detach().numpy()
+                y_hat_train_label[m * batch_size: (m + 1) * batch_size] = np.argmax(p_train_label_batch_numpy, axis=1)
+
+                batch_accuracy = np.divide(np.sum(np.argmax(p_train_label_batch_numpy, axis=1) == train_labels[m * batch_size:(m + 1) * batch_size].detach().numpy()), np.float(batch_size))
+                running_accuracy = np.divide(np.sum(y_hat_train_label[0: (m + 1) * batch_size] == train_labels[0:(m + 1) * batch_size].detach().numpy()), np.float((m + 1) * batch_size))
+                if m % np.floor(n_iter / 10.0).astype('int') == 0:
+                    print('Epoch [{}/{}], Step [{}/{}], Batch Loss: {:.4f}, Batch Accuracy: {:.2f}%, Running Accuracy: {:.2f}%'
+                          .format(epoch + 1, n_epoch, m + 1, n_iter, loss.item(), 100 * batch_accuracy,
+                                  100 * running_accuracy))
+            print('Results for epoch number ' + str(epoch + 1) + ':')
+            if test_im is not None and test_lab is not None:
+                accuracy.append(self.test(test_im, test_lab))
+            else:
+                acc = -1
+        print('*** Neural network is trained ***'.upper())
+        self._trained = True
+        self._currently_training = False
+        return accuracy
+
+    @staticmethod
+    def weight_reset(m):
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+            m.reset_parameters()
+
+
+if __name__ == '__main__':
+    mri_patches = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/aggregator_test')
+    histo_net_cnn = HistoNet()
+
+    # dtype Long is necessary for labels
+    histo_net_cnn.train_nn(torch.tensor(mri_patches.all_patches, dtype=torch.float),
+                           torch.tensor(mri_patches.all_labels, dtype=torch.long),
+                           lr=0.01,
+                           n_epoch=5,
+                           batch_size=32)
