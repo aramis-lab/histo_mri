@@ -258,14 +258,14 @@ if __name__ == '__main__':
 
     output_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/tg03'
 
-    tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
-    realignment = InterModalityMatching(tg03, create_new_transformation=False)
-    pt = PatchCreator(tg03, realignment, (32, 32))
-    save_object(tg03, join(output_dir, 'TG03'))
-    save_object(realignment, join(output_dir, 'realignment'))
-    save_object(pt, join(output_dir, 'patches'))
+    # tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
+    # realignment = InterModalityMatching(tg03, create_new_transformation=False)
+    # pt = PatchCreator(tg03, realignment, (32, 32))
+    # save_object(tg03, join(output_dir, 'TG03'))
+    # save_object(realignment, join(output_dir, 'realignment'))
+    # save_object(pt, join(output_dir, 'patches'))
 
-    # tg03 = load_object(join(output_dir, 'TG03'))
-    # realignment = load_object(join(output_dir, 'realignment'))
-    # patches = load_object(join(output_dir, 'patches'))
+    tg03 = load_object(join(output_dir, 'TG03'))
+    realignment = load_object(join(output_dir, 'realignment'))
+    patches = load_object(join(output_dir, 'patches'))
 
