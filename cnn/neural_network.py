@@ -137,19 +137,18 @@ class HistoNet(nn.Module):
             # print('fold ' + str(i) + ' % of DNF in train set: ' + str(np.sum(train_label) / train_label.shape[0]))
 
             subset_train = Subset(data, train_idx)
-            subset_val = Subset(data, val_idx)
 
             for idx_lr, lr in enumerate(lr_range):
                 for idx_bs, batch_size in enumerate(batch_size_range):
                     # Already shuffled by stratifiedKsplit
-                    current_params = {'batch_size': batch_size,
+                    current_params = {'batch_size': int(batch_size),
                                       'num_workers': 8}
                     dataloader_train = DataLoader(subset_train, **current_params)
-                    # dataloader_val = DataLoader(subset_val, **current_params)
+                    dataset_val = TensorDataset(data.tensors[0][val_idx], data.tensors[1][val_idx])
                     accuracy_hyperparameters[idx_k, idx_lr, idx_bs, :] = self.train_nn(dataloader_train,
                                                                                        lr=lr,
                                                                                        n_epoch=n_epochs,
-                                                                                       val_data=subset_val)
+                                                                                       val_data=dataset_val)
         return accuracy_hyperparameters
 
     def test(self, test_images, test_labels):
@@ -157,6 +156,7 @@ class HistoNet(nn.Module):
         if not self._trained and not self._currently_training:
             raise RuntimeError('CNN is not trained. Train it with CNN.train()')
         if not (isinstance(test_images, torch.Tensor) & isinstance(test_labels, torch.Tensor)):
+            assert ; 'Exception here is raised'
             raise ValueError('test data and label must be provided as torch.Tensor objects')
         if not test_images.shape[0] == test_labels.shape[0]:
             raise ValueError('Test set contains ' + str(test_images.shape[0]) + ' image(s) but has ' + str(
@@ -169,6 +169,7 @@ class HistoNet(nn.Module):
                              np.float(test_labels.shape[0]))
         print('Accuracy of model on test set is {:.2f}%'.format(100 * accuracy))
         return accuracy
+
 
 if __name__ == '__main__':
     mri_patches = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/aggregator_test')
