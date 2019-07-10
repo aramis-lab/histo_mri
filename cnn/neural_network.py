@@ -3,8 +3,10 @@ import numpy as np
 import torch.nn as nn
 from algo_utils import load_object
 from patch_aggregator import PatchAggregator
-from torch.utils.data.dataset import TensorDataset
+from torch.utils.data.dataset import TensorDataset, Subset
 from torch.utils.data.dataloader import DataLoader
+from sklearn.model_selection import StratifiedKFold
+
 
 
 class HistoNet(nn.Module):
@@ -55,8 +57,7 @@ class HistoNet(nn.Module):
                  dataloader,
                  lr=0.01,
                  n_epoch=5,
-                 test_im=None,
-                 test_lab=None):
+                 val_data=None):
         """
         if train_images.shape[0] % batch_size != 0:
             print('Recognized ' + str(train_images.shape[0]) + ' images but batch size is ' + str(batch_size)
@@ -74,11 +75,11 @@ class HistoNet(nn.Module):
         self._currently_training = True
         accuracy = []
         for epoch in range(n_epoch):
-            # y_hat_train_label = np.empty(train_labels.shape)
-            # y_hat_train_label[:] = np.nan
+            # This array is only to generate acc performance
+            y_train_label = []
+
             y_hat_train_label = []
-            for local_batch, local_label in dataloader:
-                print(str(np.sum(local_label.detach().numpy())))
+            for m, (local_batch, local_label) in enumerate(dataloader):
                 optimizer.zero_grad()
                 output = self(local_batch)
                 loss = self.criterion(output, local_label)
@@ -86,29 +87,88 @@ class HistoNet(nn.Module):
                 optimizer.step()
 
                 p_train_label_batch_numpy = output.detach().numpy()
-                #y_hat_train_label.extend(np.argmax(p_train_label_batch_numpy, axis=1))
+                y_hat_train_label.extend(list(np.argmax(p_train_label_batch_numpy, axis=1)))
+                y_train_label.extend(list(local_label.detach().numpy()))
 
-                #batch_accuracy = np.divide(np.sum(np.argmax(p_train_label_batch_numpy, axis=1) == local_label.detach().numpy()), np.float(batch_size))
-                #running_accuracy = np.divide(np.sum(y_hat_train_label[batch_size * epoch + m] == local_label.detach().numpy()), np.float((m + 1) * batch_size))
-                #if m % np.floor(n_iter / 10.0).astype('int') == 0:
-                #    print('Epoch [{}/{}], Step [{}/{}], Batch Loss: {:.4f}, Batch Accuracy: {:.2f}%, Running Accuracy: {:.2f}%'
-                #          .format(epoch + 1, n_epoch, m + 1, n_iter, loss.item(), 100 * batch_accuracy,
-                #                  100 * running_accuracy))
+                if m % np.floor(n_iter / 15.0).astype('int') == 0:
+                    batch_accuracy = np.divide(np.sum(np.argmax(p_train_label_batch_numpy, axis=1) == local_label.detach().numpy()),
+                                               np.float(dataloader.batch_size))
+                    sensitivity = np.divide(np.sum((np.array(y_hat_train_label) == np.array(y_train_label)) * (np.array(y_train_label) == 1)),
+                                            np.sum(np.array(y_train_label) == 1))
+                    specificity = np.divide(np.sum((np.array(y_hat_train_label) == np.array(y_train_label)) * (np.array(y_train_label) == 0)),
+                                            np.sum(np.array(y_train_label) == 0))
+                    balanced_accuracy = (sensitivity + specificity) / 2
+                    running_accuracy = np.divide(np.sum(np.array(y_hat_train_label) == np.array(y_train_label)),
+                                                 np.float(len(y_hat_train_label)))
+                    print('Epoch [{}/{}], Step [{}/{}], Batch Loss: {:.4f}, Batch Accuracy: {:.2f}%, Running Accuracy: {:.2f}%, Balanced Accuracy: {:.2f}%'
+                          .format(epoch + 1, n_epoch, m + 1, n_iter, loss.item(), 100 * batch_accuracy, 100 * running_accuracy, 100 * balanced_accuracy))
             print('Results for epoch number ' + str(epoch + 1) + ':')
-            if test_im is not None and test_lab is not None:
-                accuracy.append(self.test(test_im, test_lab))
+            if val_data is not None:
+                accuracy.append(self.test(val_data.tensors[0].numpy(), val_data.tensors[1].numpy()))
             else:
                 accuracy.append(-1)
         print('*** Neural network is trained ***'.upper())
         self._trained = True
         self._currently_training = False
-        return accuracy
+        return np.array(accuracy)
 
     @staticmethod
     def weight_reset(m):
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
             m.reset_parameters()
 
+    def find_hyper_parameter(self, k_fold, n_epochs, data):
+
+        # search parameter range
+        lr_range = np.logspace(-3, -0.7, 5)
+        batch_size_range = np.array([2 ** power for power in [3, 4, 5, 6]]).astype('int')
+        accuracy_hyperparameters = np.zeros((k_fold,
+                                             lr_range.size,
+                                             batch_size_range.size,
+                                             n_epochs)).astype('float')
+
+        # Stratiefied k_fold ensures to keep the folds balanced
+        skf = StratifiedKFold(k_fold, shuffle=True, random_state=0)
+
+        # k_fold grid
+        for idx_k, (train_idx, val_idx) in enumerate(skf.split(data.tensors[0], data.tensors[1])):
+            # Those lines displays information of the repartition of dnf labels within each train / val t
+            # print('fold ' + str(i) + ' % of DNF in test set: ' + str(np.sum(test_label) / test_label.shape[0]))
+            # print('fold ' + str(i) + ' % of DNF in train set: ' + str(np.sum(train_label) / train_label.shape[0]))
+
+            subset_train = Subset(data, train_idx)
+            subset_val = Subset(data, val_idx)
+
+            for idx_lr, lr in enumerate(lr_range):
+                for idx_bs, batch_size in enumerate(batch_size_range):
+                    # Already shuffled by stratifiedKsplit
+                    current_params = {'batch_size': batch_size,
+                                      'num_workers': 8}
+                    dataloader_train = DataLoader(subset_train, **current_params)
+                    # dataloader_val = DataLoader(subset_val, **current_params)
+                    accuracy_hyperparameters[idx_k, idx_lr, idx_bs, :] = self.train_nn(dataloader_train,
+                                                                                       lr=lr,
+                                                                                       n_epoch=n_epochs,
+                                                                                       val_data=subset_val)
+        return accuracy_hyperparameters
+
+    def test(self, test_images, test_labels):
+        # Check that that the CNN is trained using attribute
+        if not self._trained and not self._currently_training:
+            raise RuntimeError('CNN is not trained. Train it with CNN.train()')
+        if not (isinstance(test_images, torch.Tensor) & isinstance(test_labels, torch.Tensor)):
+            raise ValueError('test data and label must be provided as torch.Tensor objects')
+        if not test_images.shape[0] == test_labels.shape[0]:
+            raise ValueError('Test set contains ' + str(test_images.shape[0]) + ' image(s) but has ' + str(
+                test_labels.shape[0]) + ' label(s)')
+        with torch.no_grad():
+            probability = self(test_images)
+        probability_numpy = probability.detach().numpy()
+        y_hat = np.argmax(probability_numpy, axis=1)
+        accuracy = np.divide(np.sum(y_hat == test_labels.detach().numpy()),
+                             np.float(test_labels.shape[0]))
+        print('Accuracy of model on test set is {:.2f}%'.format(100 * accuracy))
+        return accuracy
 
 if __name__ == '__main__':
     mri_patches = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/aggregator_test')
@@ -125,9 +185,11 @@ if __name__ == '__main__':
 
     dataset = TensorDataset(torch.from_numpy(mri_patches.all_patches),
                             torch.from_numpy(labs))
-    dataloader = DataLoader(dataset, **params)
+    #dataloader = DataLoader(dataset, **params)
+
+    hyperparameters = histo_net_cnn.find_hyper_parameter(k_fold=5, n_epochs=3, data=dataset)
 
     # dtype Long is necessary for labels
-    histo_net_cnn.train_nn(dataloader,
-                           lr=0.01,
-                           n_epoch=1)
+    #histo_net_cnn.train_nn(dataloader,
+    #                       lr=0.01,
+    #                       n_epoch=1)
