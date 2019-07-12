@@ -8,7 +8,6 @@ from torch.utils.data.dataloader import DataLoader
 from sklearn.model_selection import StratifiedKFold
 
 
-
 class HistoNet(nn.Module):
 
     def __init__(self):
@@ -104,7 +103,7 @@ class HistoNet(nn.Module):
                           .format(epoch + 1, n_epoch, m + 1, n_iter, loss.item(), 100 * batch_accuracy, 100 * running_accuracy, 100 * balanced_accuracy))
             print('Results for epoch number ' + str(epoch + 1) + ':')
             if val_data is not None:
-                accuracy.append(self.test(val_data.tensors[0].numpy(), val_data.tensors[1].numpy()))
+                accuracy.append(self.test(val_data.tensors[0], val_data.tensors[1]))
             else:
                 accuracy.append(-1)
         print('*** Neural network is trained ***'.upper())
@@ -117,11 +116,13 @@ class HistoNet(nn.Module):
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
             m.reset_parameters()
 
-    def find_hyper_parameter(self, k_fold, n_epochs, data):
+    def find_hyper_parameter(self, k_fold, n_epochs, data, output_directory):
+
 
         # search parameter range
         lr_range = np.logspace(-3, -0.7, 5)
         batch_size_range = np.array([2 ** power for power in [3, 4, 5, 6]]).astype('int')
+
         accuracy_hyperparameters = np.zeros((k_fold,
                                              lr_range.size,
                                              batch_size_range.size,
@@ -156,19 +157,25 @@ class HistoNet(nn.Module):
         if not self._trained and not self._currently_training:
             raise RuntimeError('CNN is not trained. Train it with CNN.train()')
         if not (isinstance(test_images, torch.Tensor) & isinstance(test_labels, torch.Tensor)):
-            assert ; 'Exception here is raised'
             raise ValueError('test data and label must be provided as torch.Tensor objects')
         if not test_images.shape[0] == test_labels.shape[0]:
-            raise ValueError('Test set contains ' + str(test_images.shape[0]) + ' image(s) but has ' + str(
-                test_labels.shape[0]) + ' label(s)')
+            raise ValueError('Test set contains ' + str(test_images.shape[0]) + ' image(s) but has ' + str(test_labels.shape[0]) + ' label(s)')
         with torch.no_grad():
             probability = self(test_images)
+
+        # Need to calculate balanced accuracy
         probability_numpy = probability.detach().numpy()
         y_hat = np.argmax(probability_numpy, axis=1)
         accuracy = np.divide(np.sum(y_hat == test_labels.detach().numpy()),
                              np.float(test_labels.shape[0]))
+        sensitivity = np.divide(np.sum((np.array(y_hat) == np.array(test_labels)) * (np.array(test_labels) == 1)),
+                                np.sum(np.array(test_labels) == 1))
+        specificity = np.divide(np.sum((np.array(y_hat) == np.array(test_labels)) * (np.array(test_labels) == 0)),
+                                np.sum(np.array(test_labels) == 0))
+        balanced_accuracy = (sensitivity + specificity) / 2
         print('Accuracy of model on test set is {:.2f}%'.format(100 * accuracy))
-        return accuracy
+        print('Balanced accuracy of model on test set is {:.2f}%'.format(100 * balanced_accuracy))
+        return balanced_accuracy
 
 
 if __name__ == '__main__':
@@ -188,7 +195,10 @@ if __name__ == '__main__':
                             torch.from_numpy(labs))
     #dataloader = DataLoader(dataset, **params)
 
-    hyperparameters = histo_net_cnn.find_hyper_parameter(k_fold=5, n_epochs=3, data=dataset)
+    hyperparameters = histo_net_cnn.find_hyper_parameter(k_fold=5,
+                                                         n_epochs=3,
+                                                         data=dataset,
+                                                         output_directory='/Users/arnaud.marcoux/histo_mri/pickled_data/cnn/hyperparameters')
 
     # dtype Long is necessary for labels
     #histo_net_cnn.train_nn(dataloader,
