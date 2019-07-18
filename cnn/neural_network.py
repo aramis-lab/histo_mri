@@ -6,6 +6,7 @@ from patch_aggregator import PatchAggregator
 from torch.utils.data.dataset import TensorDataset, Subset
 from torch.utils.data.dataloader import DataLoader
 from sklearn.model_selection import StratifiedKFold
+from os.path import join
 
 
 class HistoNet(nn.Module):
@@ -20,6 +21,9 @@ class HistoNet(nn.Module):
 
         # Loss of CNN
         self.criterion = nn.CrossEntropyLoss()
+
+        # Image normalization over batch size, for each channel
+        self.normalize = nn.BatchNorm2d(5)
 
         # Layers
         self.conv1 = nn.Conv2d(in_channels=5, out_channels=4, kernel_size=5, stride=1, padding=2)
@@ -39,6 +43,7 @@ class HistoNet(nn.Module):
         self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
+        x = self.normalize(x)
         x = self.conv1(x)
         x = self.relu1(x)
         x = self.maxpool1(x)
@@ -118,7 +123,6 @@ class HistoNet(nn.Module):
 
     def find_hyper_parameter(self, k_fold, n_epochs, data, output_directory):
 
-
         # search parameter range
         lr_range = np.logspace(-3, -0.7, 5)
         batch_size_range = np.array([2 ** power for power in [3, 4, 5, 6]]).astype('int')
@@ -150,6 +154,7 @@ class HistoNet(nn.Module):
                                                                                        lr=lr,
                                                                                        n_epoch=n_epochs,
                                                                                        val_data=dataset_val)
+                    np.save(join(output_directory, 'hyperparameter_matrix.npy'), accuracy_hyperparameters)
         return accuracy_hyperparameters
 
     def test(self, test_images, test_labels):
@@ -193,14 +198,14 @@ if __name__ == '__main__':
 
     dataset = TensorDataset(torch.from_numpy(mri_patches.all_patches),
                             torch.from_numpy(labs))
-    #dataloader = DataLoader(dataset, **params)
+    dataloader = DataLoader(dataset, **params)
 
-    hyperparameters = histo_net_cnn.find_hyper_parameter(k_fold=5,
-                                                         n_epochs=3,
-                                                         data=dataset,
-                                                         output_directory='/Users/arnaud.marcoux/histo_mri/pickled_data/cnn/hyperparameters')
+    #hyperparameters = histo_net_cnn.find_hyper_parameter(k_fold=5,
+    #                                                     n_epochs=3,
+    #                                                     data=dataset,
+    #                                                     output_directory='/Users/arnaud.marcoux/histo_mri/pickled_data/cnn/hyperparameters')
 
     # dtype Long is necessary for labels
-    #histo_net_cnn.train_nn(dataloader,
-    #                       lr=0.01,
-    #                       n_epoch=1)
+    histo_net_cnn.train_nn(dataloader,
+                           lr=0.01,
+                           n_epoch=5)
