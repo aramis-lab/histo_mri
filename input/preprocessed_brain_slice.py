@@ -1,6 +1,6 @@
 import os
-from raw_brain_slice import BrainSlice
-from utils import identify_modality, coregister, normalize_vol
+from input.raw_brain_slice import BrainSlice
+from input.utils import identify_modality, coregister, normalize_vol
 from algorithms.algo_utils import get_mask_data
 import nibabel as nib
 import numpy as np

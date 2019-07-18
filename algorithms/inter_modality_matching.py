@@ -1,5 +1,5 @@
 from input.preprocessed_brain_slice import PreprocessedBrainSlice
-from algo_utils import register_histo, compute_nmi
+from algorithms.algo_utils import register_histo, compute_nmi
 import numpy as np
 import nibabel as nib
 from PIL import Image

@@ -1,3 +1,4 @@
+from input.utils import identify_modality
 import os
 import nibabel as nib
 from PIL import Image
@@ -13,7 +14,6 @@ class BrainSlice:
     histo_path :    path to the histological cut
     """
     def __init__(self, path_to_data):
-        from utils import identify_modality
 
         assert isinstance(path_to_data, str), 'Argument given in parameter must be a valid path'
         self.path_to_data = path_to_data

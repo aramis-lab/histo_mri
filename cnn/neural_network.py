@@ -20,7 +20,7 @@ class HistoNet(nn.Module):
         self._trained = False
 
         # Loss of CNN
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(np.array([0.05505229131, 0.9449477087]), dtype=torch.float))
 
         # Image normalization over batch size, for each channel
         self.normalize = nn.BatchNorm2d(5)
@@ -36,7 +36,7 @@ class HistoNet(nn.Module):
         self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, return_indices=False,
                                      ceil_mode=False)
 
-        self.FC1 = nn.Linear(in_features=8 * 8 * 8, out_features=128)
+        self.FC1 = nn.Linear(in_features=8 * 8 * 4, out_features=128)
         self.relu3 = nn.ReLU()
 
         self.FC2 = nn.Linear(in_features=128, out_features=2)
@@ -47,9 +47,9 @@ class HistoNet(nn.Module):
         x = self.conv1(x)
         x = self.relu1(x)
         x = self.maxpool1(x)
-        x = self.conv2(x)
-        x = self.relu2(x)
-        x = self.maxpool2(x)
+        # x = self.conv2(x)
+        # x = self.relu2(x)
+        # x = self.maxpool2(x)
         x = x.view(-1, x[0].numel())
         x = self.FC1(x)
         x = self.relu3(x)

@@ -1,7 +1,7 @@
 from input.preprocessed_brain_slice import PreprocessedBrainSlice
 from algorithms.inter_modality_matching import InterModalityMatching
 from patch.patch_creator import PatchCreator
-from algo_utils import save_object, load_object
+from algorithms.algo_utils import save_object, load_object
 from collections import Counter
 import numpy as np
 
