@@ -43,9 +43,6 @@ if __name__ == '__main__':
     else:
         patch_aggregator = load_object(join(output_folder, 'patch_aggregator'))
 
-    labs = patch_aggregator.all_labels
-    labs[labs == 2] = 0
-
     histo_net_cnn = HistoNet()
     # Parameters
     params = {'batch_size': 32,
@@ -53,10 +50,7 @@ if __name__ == '__main__':
               'num_workers': 8}
 
     dataset = TensorDataset(torch.from_numpy(patch_aggregator.all_patches),
-                            torch.from_numpy(labs))
+                            torch.from_numpy(patch_aggregator.all_labels))
     dataloader = DataLoader(dataset, **params)
 
-    # dtype Long is necessary for labels
-    histo_net_cnn.train_nn(dataloader,
-                           lr=0.01,
-                           n_epoch=10)
+    histo_net_cnn.find_hyper_parameter(5, patch_aggregator, join(output_folder, 'simple_model'))

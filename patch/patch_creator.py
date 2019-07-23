@@ -87,6 +87,7 @@ class PatchCreator:
         self.label_area = self.covered_area(processed_brainslice.histo_shape[:2], self.histo_coordinates)
 
         print(Fore.GREEN + '** Final number of patches kept : ' + str(len(self.input_patches)) + ' **' + Fore.RESET)
+        self.name = processed_brainslice.name
 
     def draw_rectangle(self, n_rect, brain_slice):
 

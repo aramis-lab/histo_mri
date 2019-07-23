@@ -2,6 +2,8 @@ from input.preprocessed_brain_slice import PreprocessedBrainSlice
 from algorithms.inter_modality_matching import InterModalityMatching
 from patch.patch_creator import PatchCreator
 from algorithms.algo_utils import save_object, load_object
+from torch.utils.data.dataset import TensorDataset
+import torch
 from collections import Counter
 import numpy as np
 
@@ -27,11 +29,16 @@ class PatchAggregator:
         #                ... for inner in outer]
         self.all_labels = [j for i in [patch.labels for patch in args] for j in i]
         self.all_labels = np.array(self.all_labels)
+        self.all_labels[self.all_labels == 2] = 0
 
         # Check consistency
         if len(self.all_labels) != len(self.all_patches):
             raise ValueError('Number of labels (' + str(len(self.all_labels))
                              + ') != number of patches(' + str(len(self.all_patches)) + ')')
+
+        self.mouse_name = []
+        for m in args:
+            self.mouse_name.extend([m.name] * len(m.labels))
 
     def __repr__(self):
         label_count = Counter(self.all_labels)
@@ -40,6 +47,13 @@ class PatchAggregator:
         description = ' * PatchAgregator * \nNumber of samples : ' + str(self.all_patches.shape[0]) \
                       + '\nLabels description - dnf : ' + str(n_1) + ' no dnf : ' + str(n_2)
         return description
+
+    def get_tensor(self, *args):
+        matching_idx = [i for i, name in enumerate(self.mouse_name) if name in args]
+        matching_patches = self.all_patches[matching_idx]
+        matching_labels = self.all_labels[matching_idx]
+        return TensorDataset(torch.from_numpy(matching_patches),
+                             torch.from_numpy(matching_labels))
 
 
 if __name__ == '__main__':
@@ -80,6 +94,7 @@ if __name__ == '__main__':
     patches_wt04 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt04/patches')
     patches_wt05 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt05/patches')
     patches_wt06 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt06/patches')
-    mri_patches = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/aggregator_test')
+    # mri_patches = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/aggregator_test')
 
+    mri_patches = PatchAggregator(patches_tg03, patches_wt03, patches_wt04, patches_wt05, patches_wt06)
 

@@ -5,8 +5,9 @@ from algo_utils import load_object
 from patch_aggregator import PatchAggregator
 from torch.utils.data.dataset import TensorDataset, Subset
 from torch.utils.data.dataloader import DataLoader
-from sklearn.model_selection import StratifiedKFold
-from os.path import join
+from sklearn.model_selection import StratifiedKFold, KFold
+from os.path import join, isfile, exists
+from os import remove, mkdir
 
 
 class HistoNet(nn.Module):
@@ -20,7 +21,7 @@ class HistoNet(nn.Module):
         self._trained = False
 
         # Loss of CNN
-        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(np.array([0.05505229131, 0.9449477087]), dtype=torch.float))
+        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(np.array([0.05, 0.95]), dtype=torch.float))
 
         # Image normalization over batch size, for each channel
         self.normalize = nn.BatchNorm2d(5)
@@ -63,14 +64,13 @@ class HistoNet(nn.Module):
                  n_epoch=5,
                  val_data=None):
         """
-        if train_images.shape[0] % batch_size != 0:
-            print('Recognized ' + str(train_images.shape[0]) + ' images but batch size is ' + str(batch_size)
-                  + '. Network needs number_of_images % batch_size == 0')
-            samples_to_add = batch_size - train_images.shape[0] % batch_size
-            train_images = torch.tensor(np.concatenate((train_images, train_images[:samples_to_add])), dtype=torch.float)
-            train_labels = torch.tensor(np.concatenate((train_labels, train_labels[:samples_to_add])), dtype=torch.long)
-            assert train_images.shape[0] % batch_size == 0, 'Something went wrong when concatenating train_images'
+        :param dataloader:
+        :param lr:
+        :param n_epoch:
+        :param val_data: must be a TensorDataset
+        :return:
         """
+
 
         # Needed in case of hyperparameters tuning
         self.apply(self.weight_reset)
@@ -121,43 +121,103 @@ class HistoNet(nn.Module):
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
             m.reset_parameters()
 
-    def find_hyper_parameter(self, k_fold, n_epochs, data, output_directory):
+    @staticmethod
+    def write_informations(n_epoch, lr_range, batch_size_range, train_set, val_set, in_mat, output_file):
 
+        mat = np.load(in_mat)
+        # Averaging along folds
+        mat_avg = np.mean(mat, axis=0)
+        argmax = np.unravel_index(np.argmax(mat_avg), mat_avg.shape)
+
+        best_accuracy_fold = mat[:, argmax[0], argmax[1], :]
+        idx_best_fold = np.unravel_index(np.argmax(best_accuracy_fold), best_accuracy_fold.shape)[0]
+
+        if isfile(output_file):
+            remove(output_file)
+
+        with open(output_file, 'w') as file:
+            file.write('n_epoch : ' + str(n_epoch))
+            file.write('\nlr_range : ' + str(lr_range))
+            file.write('\nbatch_size_range : ' + str(batch_size_range))
+            file.write('\nmatrix file : ' + str(in_mat))
+            file.write('\ntrain set : ' + str(train_set))
+            file.write('\ntest set : ' + str(val_set))
+            file.write('\n\n** Best model :\nlr : ' + str(lr_range[argmax[0]]))
+            file.write('\nbatch size : ' + str(batch_size_range[argmax[1]]))
+            file.write('\nepoch : ' + str(argmax[2] + 1))
+            file.write('\nidx best fold : ' + str(idx_best_fold))
+            file.write('\nBest balanced accuracy : ' + str(np.max(mat_avg)))
+
+    def find_hyper_parameter(self, n_epochs, data, output_directory):
+        """
+        :param n_epochs:
+        :param data:
+        :param output_directory:
+        :return:
+        """
+
+        if not exists(output_directory):
+            mkdir(output_directory)
+
+        # CV model
+        k_fold = 4
         # search parameter range
-        lr_range = np.logspace(-3, -0.7, 5)
-        batch_size_range = np.array([2 ** power for power in [3, 4, 5, 6]]).astype('int')
-
-        accuracy_hyperparameters = np.zeros((k_fold,
+        lr_range = np.logspace(-3, -2, 5)
+        # batch_size_range = np.array([2 ** power for power in [4, 5, 6]]).astype('int')
+        batch_size_range = np.array([32, 64])
+        accuracy_hyperparameters = np.zeros((4,
                                              lr_range.size,
                                              batch_size_range.size,
                                              n_epochs)).astype('float')
 
-        # Stratiefied k_fold ensures to keep the folds balanced
-        skf = StratifiedKFold(k_fold, shuffle=True, random_state=0)
+        train_slices, val_slices = self.divide_population(4, 4)
+        train_slices_name = []
+        val_slices_name = []
+        for train_slice, val_slice in zip(train_slices, val_slices):
+            train_slices_name.append(['TG0' + str(n + 3) for n in train_slice[0]]
+                                     + ['WT0' + str(n + 3) for n in train_slice[1]])
+            val_slices_name.append(['TG0' + str(n + 3) for n in val_slice[0]]
+                                   + ['WT0' + str(n + 3) for n in val_slice[1]])
+        train_idx = []
+        val_idx = []
+        for k, (train_slice_name, val_slice_name) in enumerate(zip(train_slices_name, val_slices_name)):
+            train_idx.append([i for i in range(len(data.mouse_name)) if data.mouse_name[i] in train_slice_name])
+            val_idx.append([i for i in range(len(data.mouse_name)) if data.mouse_name[i] in val_slice_name])
 
+        dataset = TensorDataset(torch.from_numpy(data.all_patches),
+                                torch.from_numpy(data.all_labels))
         # k_fold grid
-        for idx_k, (train_idx, val_idx) in enumerate(skf.split(data.tensors[0], data.tensors[1])):
+        for idx_k in range(k_fold):
             # Those lines displays information of the repartition of dnf labels within each train / val t
-            # print('fold ' + str(i) + ' % of DNF in test set: ' + str(np.sum(test_label) / test_label.shape[0]))
-            # print('fold ' + str(i) + ' % of DNF in train set: ' + str(np.sum(train_label) / train_label.shape[0]))
 
-            subset_train = Subset(data, train_idx)
+            subset_train = Subset(dataset, train_idx[idx_k])
 
             for idx_lr, lr in enumerate(lr_range):
                 for idx_bs, batch_size in enumerate(batch_size_range):
-                    # Already shuffled by stratifiedKsplit
                     current_params = {'batch_size': int(batch_size),
+                                      'shuffle': True,
                                       'num_workers': 8}
                     dataloader_train = DataLoader(subset_train, **current_params)
-                    dataset_val = TensorDataset(data.tensors[0][val_idx], data.tensors[1][val_idx])
+                    dataset_val = TensorDataset(torch.from_numpy(data.all_patches[val_idx[idx_k]]),
+                                                torch.from_numpy(data.all_labels[val_idx[idx_k]]))
                     accuracy_hyperparameters[idx_k, idx_lr, idx_bs, :] = self.train_nn(dataloader_train,
                                                                                        lr=lr,
                                                                                        n_epoch=n_epochs,
                                                                                        val_data=dataset_val)
                     np.save(join(output_directory, 'hyperparameter_matrix.npy'), accuracy_hyperparameters)
+                    self.write_informations(n_epochs, lr_range, batch_size_range,
+                                            train_slices_name,
+                                            val_slices_name,
+                                            join(output_directory, 'hyperparameter_matrix.npy'),
+                                            join(output_directory, 'results_cnn.txt'))
         return accuracy_hyperparameters
 
     def test(self, test_images, test_labels):
+        """
+        :param test_images:
+        :param test_labels:
+        :return:
+        """
         # Check that that the CNN is trained using attribute
         if not self._trained and not self._currently_training:
             raise RuntimeError('CNN is not trained. Train it with CNN.train()')
@@ -181,6 +241,21 @@ class HistoNet(nn.Module):
         print('Accuracy of model on test set is {:.2f}%'.format(100 * accuracy))
         print('Balanced accuracy of model on test set is {:.2f}%'.format(100 * balanced_accuracy))
         return balanced_accuracy
+
+    @staticmethod
+    def divide_population(n_tg, n_wt):
+        assert n_tg == n_wt, 'This cross validation procedure is designed to work only when n_tg == n_wt'
+        kf_tg = KFold(n_splits=n_tg, shuffle=True)
+        kf_wt = KFold(n_splits=n_wt, shuffle=True)
+
+        train_set = []
+        val_set = []
+
+        for (idx_train_tg, idx_val_tg), (idx_train_wt, idx_val_wt) in zip(kf_tg.split(range(4)), kf_wt.split(range(4))):
+            train_set.append((idx_train_tg, idx_train_wt))
+            val_set.append((idx_val_tg, idx_val_wt))
+
+        return train_set, val_set
 
 
 if __name__ == '__main__':
