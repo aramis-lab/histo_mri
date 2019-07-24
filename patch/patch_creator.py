@@ -23,7 +23,6 @@ class PatchCreator:
     self.inputs_patches           : patches of shape (n_sample, n_channel, height, width)
     self.MRI_coordinates_patches  : list of rectangle of patches in MR coordinates
     self.histo_coordinates        : list of rectangle of patches in histo coordinates
-    self.transformation_matrix    : transf. matrix so that [mr_coord] x transformation_matrix = [histo_coord]
     self.labels                   : length = n_samples, labels of corresponding rectangles
     """
 
@@ -216,12 +215,25 @@ class PatchCreator:
         return coordinates
 
     @staticmethod
-    def get_label(histo_coordinates, labelized_img):
+    def get_label(histo_coordinates, labelized_img, threshold=0.75):
+        """
+        :param histo_coordinates: 4 coordinates on histological cut
+        :param labelized_img: ndarray of size : histological img  with labels on each px
+        :param threshold: float C [0.5;1] defining the % of the majority class needed to validate the classfication of
+        the patch. If it doesn't pass, patch is labelled as background (0)
+        :return: label for the patch (0, 1 or 2)
+        """
         assert isinstance(labelized_img, np.ndarray), 'labelized_img must be a numpy.ndarray'
+        assert 0.5 <= threshold <= 1.0, 'Threshold must be between 0.5 and 1.0'
         histo_idx = extract_idx_underlying_mask(histo_coordinates)
         intensity_list = labelized_img[histo_idx]
         # np.bincount 10 times faster than Counter(intensity_list).most_common()[0][0]
-        return np.bincount(intensity_list).argmax()
+        count_intensities = np.bincount(intensity_list)
+        majority_class = count_intensities.argmax()
+        if count_intensities[majority_class] / np.sum(count_intensities) > threshold:
+            return majority_class
+        else:
+            return 0
 
     def estimate_labels(self, labelized_img_path):
 
@@ -259,14 +271,14 @@ if __name__ == '__main__':
 
     output_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/tg03'
 
-    # tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
-    # realignment = InterModalityMatching(tg03, create_new_transformation=False)
-    # pt = PatchCreator(tg03, realignment, (32, 32))
-    # save_object(tg03, join(output_dir, 'TG03'))
-    # save_object(realignment, join(output_dir, 'realignment'))
-    # save_object(pt, join(output_dir, 'patches'))
+    tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
+    realignment = InterModalityMatching(tg03, create_new_transformation=False)
+    pt = PatchCreator(tg03, realignment, (16, 16))
+    save_object(tg03, join(output_dir, 'TG03'))
+    save_object(realignment, join(output_dir, 'realignment'))
+    save_object(pt, join(output_dir, 'patches'))
 
-    tg03 = load_object(join(output_dir, 'TG03'))
-    realignment = load_object(join(output_dir, 'realignment'))
-    patches = load_object(join(output_dir, 'patches'))
+    # tg03 = load_object(join(output_dir, 'TG03'))
+    # realignment = load_object(join(output_dir, 'realignment'))
+    # patches = load_object(join(output_dir, 'patches'))
 
