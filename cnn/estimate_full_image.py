@@ -18,26 +18,58 @@ class FullImageEstimate:
                                                            dtype=torch.float32)).detach().numpy(),
                                     axis=1)
 
-        image_estimate = Image.new('L', mri_shape, color=0)
+        self.image_name = patch_creator.name
+        self.probability_map_dnf = np.zeros(mri_shape)
+        self.probability_map_no_dnf = np.zeros(mri_shape)
         for lab, coord in zip(labels_estimate, patch_creator.mri_coordinates):
-            # lab + 1 is used to obtain the following look up table
+            # 2 - lab is used to obtain the following look up table
             # 0 background
             # 1 dnf
             # 2 no-dnf
-            ImageDraw.Draw(image_estimate).polygon(list(((tuple(co) for co in coord))),
-                                                   outline=int(2 - lab),
-                                                   fill=int(2 - lab))
-        self.final_image = np.transpose(np.array(image_estimate))
+            patch_location = Image.new('1', mri_shape, color=0)
+            ImageDraw.Draw(patch_location).polygon(list(((tuple(co) for co in coord))),
+                                                   outline=1,
+                                                   fill=1)
+            idx = np.where(np.array(patch_location))
+            if lab == 0:
+                self.probability_map_no_dnf[idx] += 1
+            elif lab == 1:
+                self.probability_map_dnf[idx] += 1
+
+        self.probability_map_no_dnf = np.transpose(self.probability_map_no_dnf)
+        self.probability_map_dnf = np.transpose(self.probability_map_dnf)
+
+        self.probability_map_no_dnf /= np.max(self.probability_map_no_dnf)
+        self.probability_map_dnf /= np.max(self.probability_map_dnf)
 
         self.warped_labels_ground_truth = warp(np.load(patch_creator.labelized_img),
                                                realignment.transformation_matrix,
                                                output_shape=mri_shape)
 
     def show_estimate(self):
-        plt.subplot(1, 2, 1)
-        plt.imshow(self.final_image)
-        plt.subplot(1, 2, 2)
+
+        myfig = plt.figure(3)
+        myfig.suptitle('Estimation of labels in ' + self.image_name, fontsize=12)
+
+        plt.subplot(2, 2, 1)
+        plt.imshow(self.probability_map_no_dnf)
+        plt.title('Probability map NO DNF')
+
+        plt.subplot(2, 2, 2)
+        plt.imshow(self.probability_map_dnf)
+        plt.title('Probability map DNF')
+
+        plt.subplot(2, 2, 3)
+        plt.imshow(np.stack([self.probability_map_dnf,
+                             self.probability_map_no_dnf,
+                             np.zeros(self.probability_map_dnf.shape)],
+                            axis=2))
+        plt.title('Combined probability')
+
+        plt.subplot(2, 2, 4)
         plt.imshow(self.warped_labels_ground_truth)
+        plt.title('Ground truth')
+
         plt.show()
 
 
@@ -74,6 +106,6 @@ if __name__ == '__main__':
     # n = 6 -> WT05
     # n = 7 -> WT06
 
-    for n in range(7):
+    for n in range(2):
         tg03_img_estimate = FullImageEstimate(cnn, patch_creators[n], realignements[n], (384, 384))
         tg03_img_estimate.show_estimate()

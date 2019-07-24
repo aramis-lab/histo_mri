@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 import torch.nn as nn
-from algo_utils import load_object
-from patch_aggregator import PatchAggregator
+from algorithms.algo_utils import load_object
+from patch.patch_aggregator import PatchAggregator
 from torch.utils.data.dataset import TensorDataset, Subset
 from torch.utils.data.dataloader import DataLoader
 from sklearn.model_selection import StratifiedKFold, KFold
@@ -21,7 +21,7 @@ class HistoNet(nn.Module):
         self._trained = False
 
         # Loss of CNN
-        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(np.array([0.05, 0.95]), dtype=torch.float))
+        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(np.array([0.02, 0.98]), dtype=torch.float))
 
         # Image normalization over batch size, for each channel
         self.normalize = nn.BatchNorm2d(5)

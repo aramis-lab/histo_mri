@@ -53,4 +53,8 @@ if __name__ == '__main__':
                             torch.from_numpy(patch_aggregator.all_labels))
     dataloader = DataLoader(dataset, **params)
 
+
+    # Problem, nan insert in matrix
+    # must run again with correct weight in loss according to how they are presented in the train set
+
     histo_net_cnn.find_hyper_parameter(5, patch_aggregator, join(output_folder, 'simple_model'))
