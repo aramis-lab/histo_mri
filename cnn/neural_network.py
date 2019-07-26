@@ -21,7 +21,7 @@ class HistoNet(nn.Module):
         self._trained = False
 
         # Loss of CNN
-        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(np.array([0.02, 0.98]), dtype=torch.float))
+        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(np.array([0.018, 0.982]), dtype=torch.float))
 
         # Image normalization over batch size, for each channel
         self.normalize = nn.BatchNorm2d(5)
@@ -114,6 +114,8 @@ class HistoNet(nn.Module):
         print('*** Neural network is trained ***'.upper())
         self._trained = True
         self._currently_training = False
+        if np.sum(np.array(accuracy) != np.array(accuracy)) > 0:
+            pass
         return np.array(accuracy)
 
     @staticmethod
@@ -146,7 +148,7 @@ class HistoNet(nn.Module):
             file.write('\nbatch size : ' + str(batch_size_range[argmax[1]]))
             file.write('\nepoch : ' + str(argmax[2] + 1))
             file.write('\nidx best fold : ' + str(idx_best_fold))
-            file.write('\nBest balanced accuracy : ' + str(np.max(mat_avg)))
+            file.write('\nBest balanced accuracy (avg across folds): ' + str(np.max(mat_avg)))
 
     def find_hyper_parameter(self, n_epochs, data, output_directory):
         """
@@ -162,7 +164,7 @@ class HistoNet(nn.Module):
         # CV model
         k_fold = 4
         # search parameter range
-        lr_range = np.logspace(-3, -2, 5)
+        lr_range = np.logspace(-3, -1, 6)
         # batch_size_range = np.array([2 ** power for power in [4, 5, 6]]).astype('int')
         batch_size_range = np.array([32, 64])
         accuracy_hyperparameters = np.zeros((4,
@@ -204,6 +206,9 @@ class HistoNet(nn.Module):
                                                                                        lr=lr,
                                                                                        n_epoch=n_epochs,
                                                                                        val_data=dataset_val)
+                    if np.sum(accuracy_hyperparameters != accuracy_hyperparameters) > 0:
+                        print(accuracy_hyperparameters)
+                        raise ValueError('Some nan were found in the balanced_accuracy_hyperparameter !')
                     np.save(join(output_directory, 'hyperparameter_matrix.npy'), accuracy_hyperparameters)
                     self.write_informations(n_epochs, lr_range, batch_size_range,
                                             train_slices_name,
@@ -230,13 +235,14 @@ class HistoNet(nn.Module):
 
         # Need to calculate balanced accuracy
         probability_numpy = probability.detach().numpy()
+        test_labels_numpy = test_labels.detach().numpy()
         y_hat = np.argmax(probability_numpy, axis=1)
-        accuracy = np.divide(np.sum(y_hat == test_labels.detach().numpy()),
-                             np.float(test_labels.shape[0]))
-        sensitivity = np.divide(np.sum((np.array(y_hat) == np.array(test_labels)) * (np.array(test_labels) == 1)),
-                                np.sum(np.array(test_labels) == 1))
-        specificity = np.divide(np.sum((np.array(y_hat) == np.array(test_labels)) * (np.array(test_labels) == 0)),
-                                np.sum(np.array(test_labels) == 0))
+        accuracy = np.divide(np.sum(y_hat == test_labels_numpy),
+                             np.float(test_labels_numpy.shape[0]))
+        sensitivity = np.divide(np.sum((y_hat == test_labels_numpy) * (test_labels_numpy == 1)),
+                                np.sum(test_labels_numpy == 1))
+        specificity = np.divide(np.sum((y_hat == test_labels_numpy) * (test_labels_numpy == 0)),
+                                np.sum(test_labels_numpy == 0))
         balanced_accuracy = (sensitivity + specificity) / 2
         print('Accuracy of model on test set is {:.2f}%'.format(100 * accuracy))
         print('Balanced accuracy of model on test set is {:.2f}%'.format(100 * balanced_accuracy))
