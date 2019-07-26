@@ -78,8 +78,8 @@ if __name__ == '__main__':
 
     patch_aggregator = load_object(join(output_folder, 'patch_aggregator'))
 
-    dataset_train = patch_aggregator.get_tensor(*['TG03', 'TG05', 'TG06', 'WT03', 'WT05', 'WT06'])
-    dataset_test = patch_aggregator.get_tensor(*['TG04', 'WT04'])
+    dataset_train = patch_aggregator.get_tensor(*['TG03', 'TG04', 'TG06', 'WT03', 'WT05', 'WT06'])
+    dataset_test = patch_aggregator.get_tensor(*['TG05', 'WT04'])
 
     if not isfile(join(output_folder, 'image_estimation', 'cnn')):
         cnn = HistoNet()
@@ -88,7 +88,7 @@ if __name__ == '__main__':
                        'shuffle': True,
                        'num_workers': 8}
         dataloader = DataLoader(dataset_train, **best_params)
-        cnn.train_nn(dataloader, lr=0.00316228, n_epoch=15, val_data=dataset_test)
+        cnn.train_nn(dataloader, lr=0.1, n_epoch=5, val_data=dataset_test)
         save_object(cnn, join(output_folder, 'image_estimation', 'cnn'))
     else:
         cnn = load_object(join(output_folder, 'image_estimation', 'cnn'))
@@ -106,6 +106,6 @@ if __name__ == '__main__':
     # n = 6 -> WT05
     # n = 7 -> WT06
 
-    for n in range(2):
+    for n in range(7):
         tg03_img_estimate = FullImageEstimate(cnn, patch_creators[n], realignements[n], (384, 384))
         tg03_img_estimate.show_estimate()

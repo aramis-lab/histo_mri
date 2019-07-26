@@ -43,7 +43,7 @@ class PatchAggregator:
     def __repr__(self):
         label_count = Counter(self.all_labels)
         n_1 = label_count[1]
-        n_2 = label_count[2]
+        n_2 = label_count[0]
         description = ' * PatchAgregator * \nNumber of samples : ' + str(self.all_patches.shape[0]) \
                       + '\nLabels description - dnf : ' + str(n_1) + ' no dnf : ' + str(n_2)
         return description
