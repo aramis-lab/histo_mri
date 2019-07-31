@@ -5,7 +5,6 @@ from algorithms.algo_utils import load_object
 from patch.patch_aggregator import PatchAggregator
 from torch.utils.data.dataset import TensorDataset, Subset
 from torch.utils.data.dataloader import DataLoader
-from sklearn.model_selection import StratifiedKFold, KFold
 from os.path import join, isfile, exists
 from os import remove, mkdir
 
@@ -21,13 +20,14 @@ class HistoNet(nn.Module):
         self._trained = False
 
         # Loss of CNN
-        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(np.array([0.018, 0.982]), dtype=torch.float))
+        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(np.array([0.045, 0.955]), dtype=torch.float))
 
         # Image normalization over batch size, for each channel
         self.normalize = nn.BatchNorm2d(5)
 
         # Layers
-        self.conv1 = nn.Conv2d(in_channels=5, out_channels=4, kernel_size=5, stride=1, padding=2)
+        self.conv1 = nn.Conv2d(in_channels=5, out_channels=4, kernel_size=3, stride=1, padding=1)
+        # Wo = (Wi − kernel_size + 2 * Padding)/Stride + 1
         self.relu1 = nn.ReLU()
         self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, return_indices=False,
                                      ceil_mode=False)
@@ -37,23 +37,28 @@ class HistoNet(nn.Module):
         self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, return_indices=False,
                                      ceil_mode=False)
 
-        self.FC1 = nn.Linear(in_features=8 * 8 * 4, out_features=128)
+        self.FC1 = nn.Linear(in_features=4 * 4 * 4, out_features=256)
         self.relu3 = nn.ReLU()
 
-        self.FC2 = nn.Linear(in_features=128, out_features=2)
+        self.FC2 = nn.Linear(in_features=256, out_features=2)
         self.softmax = nn.Softmax(dim=1)
+
+        self.dropout = nn.Dropout(0.5)
 
     def forward(self, x):
         x = self.normalize(x)
         x = self.conv1(x)
         x = self.relu1(x)
         x = self.maxpool1(x)
+
         # x = self.conv2(x)
         # x = self.relu2(x)
         # x = self.maxpool2(x)
         x = x.view(-1, x[0].numel())
+
         x = self.FC1(x)
         x = self.relu3(x)
+        x = self.dropout(x)
         x = self.FC2(x)
         x = self.softmax(x)
         return x
@@ -64,13 +69,12 @@ class HistoNet(nn.Module):
                  n_epoch=5,
                  val_data=None):
         """
-        :param dataloader:
+        :param dataloader: torch.dataloader object
         :param lr:
         :param n_epoch:
         :param val_data: must be a TensorDataset
         :return:
         """
-
 
         # Needed in case of hyperparameters tuning
         self.apply(self.weight_reset)
@@ -114,108 +118,12 @@ class HistoNet(nn.Module):
         print('*** Neural network is trained ***'.upper())
         self._trained = True
         self._currently_training = False
-        if np.sum(np.array(accuracy) != np.array(accuracy)) > 0:
-            pass
         return np.array(accuracy)
 
     @staticmethod
     def weight_reset(m):
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
             m.reset_parameters()
-
-    @staticmethod
-    def write_informations(n_epoch, lr_range, batch_size_range, train_set, val_set, in_mat, output_file):
-
-        mat = np.load(in_mat)
-        # Averaging along folds
-        mat_avg = np.mean(mat, axis=0)
-        argmax = np.unravel_index(np.argmax(mat_avg), mat_avg.shape)
-
-        best_accuracy_fold = mat[:, argmax[0], argmax[1], :]
-        idx_best_fold = np.unravel_index(np.argmax(best_accuracy_fold), best_accuracy_fold.shape)[0]
-
-        if isfile(output_file):
-            remove(output_file)
-
-        with open(output_file, 'w') as file:
-            file.write('n_epoch : ' + str(n_epoch))
-            file.write('\nlr_range : ' + str(lr_range))
-            file.write('\nbatch_size_range : ' + str(batch_size_range))
-            file.write('\nmatrix file : ' + str(in_mat))
-            file.write('\ntrain set : ' + str(train_set))
-            file.write('\ntest set : ' + str(val_set))
-            file.write('\n\n** Best model :\nlr : ' + str(lr_range[argmax[0]]))
-            file.write('\nbatch size : ' + str(batch_size_range[argmax[1]]))
-            file.write('\nepoch : ' + str(argmax[2] + 1))
-            file.write('\nidx best fold : ' + str(idx_best_fold))
-            file.write('\nBest balanced accuracy (avg across folds): ' + str(np.max(mat_avg)))
-
-    def find_hyper_parameter(self, n_epochs, data, output_directory):
-        """
-        :param n_epochs:
-        :param data:
-        :param output_directory:
-        :return:
-        """
-
-        if not exists(output_directory):
-            mkdir(output_directory)
-
-        # CV model
-        k_fold = 4
-        # search parameter range
-        lr_range = np.logspace(-3, -1, 6)
-        # batch_size_range = np.array([2 ** power for power in [4, 5, 6]]).astype('int')
-        batch_size_range = np.array([32, 64])
-        accuracy_hyperparameters = np.zeros((4,
-                                             lr_range.size,
-                                             batch_size_range.size,
-                                             n_epochs)).astype('float')
-
-        train_slices, val_slices = self.divide_population(4, 4)
-        train_slices_name = []
-        val_slices_name = []
-        for train_slice, val_slice in zip(train_slices, val_slices):
-            train_slices_name.append(['TG0' + str(n + 3) for n in train_slice[0]]
-                                     + ['WT0' + str(n + 3) for n in train_slice[1]])
-            val_slices_name.append(['TG0' + str(n + 3) for n in val_slice[0]]
-                                   + ['WT0' + str(n + 3) for n in val_slice[1]])
-        train_idx = []
-        val_idx = []
-        for k, (train_slice_name, val_slice_name) in enumerate(zip(train_slices_name, val_slices_name)):
-            train_idx.append([i for i in range(len(data.mouse_name)) if data.mouse_name[i] in train_slice_name])
-            val_idx.append([i for i in range(len(data.mouse_name)) if data.mouse_name[i] in val_slice_name])
-
-        dataset = TensorDataset(torch.from_numpy(data.all_patches),
-                                torch.from_numpy(data.all_labels))
-        # k_fold grid
-        for idx_k in range(k_fold):
-            # Those lines displays information of the repartition of dnf labels within each train / val t
-
-            subset_train = Subset(dataset, train_idx[idx_k])
-
-            for idx_lr, lr in enumerate(lr_range):
-                for idx_bs, batch_size in enumerate(batch_size_range):
-                    current_params = {'batch_size': int(batch_size),
-                                      'shuffle': True,
-                                      'num_workers': 8}
-                    dataloader_train = DataLoader(subset_train, **current_params)
-                    dataset_val = TensorDataset(torch.from_numpy(data.all_patches[val_idx[idx_k]]),
-                                                torch.from_numpy(data.all_labels[val_idx[idx_k]]))
-                    accuracy_hyperparameters[idx_k, idx_lr, idx_bs, :] = self.train_nn(dataloader_train,
-                                                                                       lr=lr,
-                                                                                       n_epoch=n_epochs,
-                                                                                       val_data=dataset_val)
-                    if np.sum(accuracy_hyperparameters != accuracy_hyperparameters) > 0:
-                        print(accuracy_hyperparameters)
-                        raise ValueError('Some nan were found in the balanced_accuracy_hyperparameter !')
-                    np.save(join(output_directory, 'hyperparameter_matrix.npy'), accuracy_hyperparameters)
-                    self.write_informations(n_epochs, lr_range, batch_size_range,
-                                            train_slices_name,
-                                            val_slices_name,
-                                            join(output_directory, 'hyperparameter_matrix.npy'),
-                                            join(output_directory, 'results_cnn.txt'))
-        return accuracy_hyperparameters
 
     def test(self, test_images, test_labels):
         """
@@ -244,24 +152,19 @@ class HistoNet(nn.Module):
         specificity = np.divide(np.sum((y_hat == test_labels_numpy) * (test_labels_numpy == 0)),
                                 np.sum(test_labels_numpy == 0))
         balanced_accuracy = (sensitivity + specificity) / 2
+
+        if balanced_accuracy != balanced_accuracy:
+            print('** Nan problem **')
+            print('acc ' + str(accuracy))
+            print('balanced acc ' + str(balanced_accuracy))
+            print('sensitivity  ' + str(sensitivity))
+            print('specificity  ' + str(specificity))
+            print('np.sum(test_labels_numpy == 1)) ' + str(np.sum(test_labels_numpy == 1)))
+            print('np.sum(test_labels_numpy == 0))' + str(np.sum(test_labels_numpy == 0)))
+
         print('Accuracy of model on test set is {:.2f}%'.format(100 * accuracy))
         print('Balanced accuracy of model on test set is {:.2f}%'.format(100 * balanced_accuracy))
         return balanced_accuracy
-
-    @staticmethod
-    def divide_population(n_tg, n_wt):
-        assert n_tg == n_wt, 'This cross validation procedure is designed to work only when n_tg == n_wt'
-        kf_tg = KFold(n_splits=n_tg, shuffle=True)
-        kf_wt = KFold(n_splits=n_wt, shuffle=True)
-
-        train_set = []
-        val_set = []
-
-        for (idx_train_tg, idx_val_tg), (idx_train_wt, idx_val_wt) in zip(kf_tg.split(range(4)), kf_wt.split(range(4))):
-            train_set.append((idx_train_tg, idx_train_wt))
-            val_set.append((idx_val_tg, idx_val_wt))
-
-        return train_set, val_set
 
 
 if __name__ == '__main__':

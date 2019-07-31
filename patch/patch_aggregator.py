@@ -6,7 +6,7 @@ from torch.utils.data.dataset import TensorDataset
 import torch
 from collections import Counter
 import numpy as np
-
+from colorama import Fore
 
 class PatchAggregator:
     """
@@ -44,8 +44,16 @@ class PatchAggregator:
         label_count = Counter(self.all_labels)
         n_1 = label_count[1]
         n_2 = label_count[0]
-        description = ' * PatchAgregator * \nNumber of samples : ' + str(self.all_patches.shape[0]) \
-                      + '\nLabels description - dnf : ' + str(n_1) + ' no dnf : ' + str(n_2)
+        description = Fore.RED + ' ** PatchAgregator ** ' + Fore.RESET + '\n\tNumber of samples : ' \
+                      + str(self.all_patches.shape[0]) + '\n\tLabels description - dnf : ' + str(n_1) \
+                      + ' no dnf : ' + str(n_2) + '\n\n'
+        for current_name in sorted(list(set(self.mouse_name))):
+            current_labels = [lab for slice_name, lab in zip(self.mouse_name, self.all_labels)
+                              if slice_name == current_name]
+            description += '\n' + Fore.GREEN + current_name + Fore.RESET
+            description += '\ndnf count : ' + str(np.sum(current_labels))
+            description += '\nno - dnf count : ' + str(len(current_labels) - np.sum(current_labels))
+
         return description
 
     def get_tensor(self, *args):
@@ -57,44 +65,5 @@ class PatchAggregator:
 
 
 if __name__ == '__main__':
-
-    # patch_shape = (32, 32)
-    #
-    # tg03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/TG03')
-    # realignment_tg03 = InterModalityMatching(tg03, create_new_transformation=False)
-    # patches_tg03 = PatchCreator(tg03, realignment_tg03, patch_shape)
-    #
-    # wt03 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/WT03')
-    # realignment_wt03 = InterModalityMatching(wt03, create_new_transformation=False)
-    # patches_wt03 = PatchCreator(wt03, realignment_wt03, patch_shape)
-    #
-    # wt04 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/WT04')
-    # realignment_wt04 = InterModalityMatching(wt04, create_new_transformation=False)
-    # patches_wt04 = PatchCreator(wt04, realignment_wt04, patch_shape)
-    #
-    # wt05 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/WT05')
-    # realignment_wt05 = InterModalityMatching(wt05, create_new_transformation=False)
-    # patches_wt05 = PatchCreator(wt05, realignment_wt05, patch_shape)
-    #
-    # wt06 = PreprocessedBrainSlice('/Users/arnaud.marcoux/histo_mri/images/WT06')
-    # realignment_wt06 = InterModalityMatching(wt06, create_new_transformation=False)
-    # patches_wt06 = PatchCreator(wt06, realignment_wt06, patch_shape)
-    #
-    # save_object(patches_tg03, '/Users/arnaud.marcoux/histo_mri/pickled_data/tg03/patches')
-    # save_object(patches_wt03, '/Users/arnaud.marcoux/histo_mri/pickled_data/wt03/patches')
-    # save_object(patches_wt04, '/Users/arnaud.marcoux/histo_mri/pickled_data/wt04/patches')
-    # save_object(patches_wt05, '/Users/arnaud.marcoux/histo_mri/pickled_data/wt05/patches')
-    # save_object(patches_wt06, '/Users/arnaud.marcoux/histo_mri/pickled_data/wt06/patches')
-    #
-    # mri_patches = PatchAggregator(patches_tg03, patches_wt03, patches_wt04, patches_wt05, patches_wt06)
-    # save_object(mri_patches, '/Users/arnaud.marcoux/histo_mri/pickled_data/aggregator_test')
-
-    patches_tg03 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/tg03/patches')
-    patches_wt03 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt03/patches')
-    patches_wt04 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt04/patches')
-    patches_wt05 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt05/patches')
-    patches_wt06 = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/wt06/patches')
-    # mri_patches = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/aggregator_test')
-
-    mri_patches = PatchAggregator(patches_tg03, patches_wt03, patches_wt04, patches_wt05, patches_wt06)
-
+    patches = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/patch_creators_8_8')
+    aggregator = PatchAggregator(*patches)

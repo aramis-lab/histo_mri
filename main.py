@@ -3,6 +3,7 @@ from algorithms.inter_modality_matching import InterModalityMatching
 from patch.patch_creator import PatchCreator
 from patch.patch_aggregator import PatchAggregator
 from cnn.neural_network import HistoNet
+from cnn.cross_validation import CrossValidation
 from algorithms.algo_utils import save_object, load_object
 from os.path import join, isfile
 import torch
@@ -15,7 +16,7 @@ if __name__ == '__main__':
     # Var
     input_folder = '/Users/arnaud.marcoux/histo_mri/images'
     output_folder = '/Users/arnaud.marcoux/histo_mri/pickled_data'
-    patch_shape = (16, 16)
+    patch_shape = (8, 8)
 
     mouse_names = ['TG0' + str(i) for i in [3, 4, 5, 6]] + ['WT0' + str(i) for i in [3, 4, 5, 6]]
 
@@ -33,24 +34,25 @@ if __name__ == '__main__':
 
     if not isfile(join(output_folder, 'patch_creators')):
         patch_creators = [PatchCreator(brain_slices[i], realignements[i], patch_shape) for i in range(len(brain_slices))]
-        save_object(patch_creators, join(output_folder, 'patch_creators'))
+        save_object(patch_creators, join(output_folder, 'patch_creators_8_8'))
     else:
         patch_creators = load_object(join(output_folder, 'patch_creators'))
 
-    if not isfile(join(output_folder, 'patch_aggregator')):
+    if not isfile(join(output_folder, 'patch_aggregator_8_8')):
         patch_aggregator = PatchAggregator(*patch_creators)
-        save_object(patch_aggregator, join(output_folder, 'patch_aggregator'))
+        save_object(patch_aggregator, join(output_folder, 'patch_aggregator_8_8'))
     else:
-        patch_aggregator = load_object(join(output_folder, 'patch_aggregator'))
+        patch_aggregator = load_object(join(output_folder, 'patch_aggregator_8_8'))
 
     histo_net_cnn = HistoNet()
+
+
     # Parameters
-    params = {'batch_size': 32,
-              'shuffle': True,
-              'num_workers': 8}
+    # params = {'batch_size': 32,
+    #           'shuffle': True,
+    #           'num_workers': 8}
+    #
+    # dataset = TensorDataset(torch.from_numpy(patch_aggregator.all_patches),
+    #                         torch.from_numpy(patch_aggregator.all_labels))
+    # dataloader = DataLoader(dataset, **params)
 
-    dataset = TensorDataset(torch.from_numpy(patch_aggregator.all_patches),
-                            torch.from_numpy(patch_aggregator.all_labels))
-    dataloader = DataLoader(dataset, **params)
-
-    histo_net_cnn.find_hyper_parameter(6, patch_aggregator, join(output_folder, 'simple_model'))

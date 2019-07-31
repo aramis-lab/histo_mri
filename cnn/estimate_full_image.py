@@ -8,6 +8,7 @@ from torch.utils.data.dataloader import DataLoader
 from os.path import isfile
 import numpy as np
 from skimage.transform import warp
+from patch.patch_aggregator import PatchAggregator
 
 
 class FullImageEstimate:
@@ -76,10 +77,10 @@ class FullImageEstimate:
 if __name__ == '__main__':
     output_folder = '/Users/arnaud.marcoux/histo_mri/pickled_data'
 
-    patch_aggregator = load_object(join(output_folder, 'patch_aggregator'))
+    patch_aggregator = load_object(join(output_folder, 'patch_aggregator_8_8'))
 
-    dataset_train = patch_aggregator.get_tensor(*['TG03', 'TG04', 'TG06', 'WT03', 'WT05', 'WT06'])
-    dataset_test = patch_aggregator.get_tensor(*['TG05', 'WT04'])
+    dataset_train = patch_aggregator.get_tensor(*['TG03', 'TG05', 'TG06', 'WT03', 'WT04', 'WT05'])
+    dataset_test = patch_aggregator.get_tensor(*['TG04', 'WT06'])
 
     if not isfile(join(output_folder, 'image_estimation', 'cnn')):
         cnn = HistoNet()
@@ -88,13 +89,13 @@ if __name__ == '__main__':
                        'shuffle': True,
                        'num_workers': 8}
         dataloader = DataLoader(dataset_train, **best_params)
-        cnn.train_nn(dataloader, lr=0.1, n_epoch=5, val_data=dataset_test)
+        cnn.train_nn(dataloader, lr=0.00251, n_epoch=12, val_data=dataset_test)
         save_object(cnn, join(output_folder, 'image_estimation', 'cnn'))
     else:
         cnn = load_object(join(output_folder, 'image_estimation', 'cnn'))
 
     realignements = load_object(join(output_folder, 'realignements'))
-    patch_creators = load_object(join(output_folder, 'patch_creators'))
+    patch_creators = load_object(join(output_folder, 'patch_creators_8_8'))
 
     # Choose what slice to display
     # n = 0 -> TG03
@@ -106,6 +107,6 @@ if __name__ == '__main__':
     # n = 6 -> WT05
     # n = 7 -> WT06
 
-    for n in range(7):
-        tg03_img_estimate = FullImageEstimate(cnn, patch_creators[n], realignements[n], (384, 384))
-        tg03_img_estimate.show_estimate()
+    for n in [1, 7]:
+        img_estimate = FullImageEstimate(cnn, patch_creators[n], realignements[n], (384, 384))
+        img_estimate.show_estimate()
