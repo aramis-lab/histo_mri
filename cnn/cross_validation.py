@@ -176,4 +176,4 @@ if __name__ == '__main__':
     CNN = HistoNet()
     cross_val = CrossValidation(cnn=CNN,
                                 data_aggreagator=aggregator,
-                                output_folder='/Users/arnaud.marcoux/histo_mri/pickled_data/simple_model')
+                                output_folder='/Users/arnaud.marcoux/histo_mri/pickled_data/simple_model_kappa')

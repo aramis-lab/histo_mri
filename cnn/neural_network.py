@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 from algorithms.algo_utils import load_object
+from colorama import Fore
 from patch.patch_aggregator import PatchAggregator
 from torch.utils.data.dataset import TensorDataset, Subset
 from torch.utils.data.dataloader import DataLoader
@@ -115,7 +116,7 @@ class HistoNet(nn.Module):
                 accuracy.append(self.test(val_data.tensors[0], val_data.tensors[1]))
             else:
                 accuracy.append(-1)
-        print('*** Neural network is trained ***'.upper())
+        print(Fore.GREEN + '*** Neural network is trained ***'.upper() + Fore.RESET)
         self._trained = True
         self._currently_training = False
         return np.array(accuracy)
@@ -153,6 +154,12 @@ class HistoNet(nn.Module):
                                 np.sum(test_labels_numpy == 0))
         balanced_accuracy = (sensitivity + specificity) / 2
 
+        # Cohen's kappa measures how much better the classifier is compared with guessing with the target distribution
+        p_both_dnf = (np.sum(y_hat == 1) / y_hat.size) * (np.sum(test_labels_numpy == 1) / test_labels_numpy.size)
+        p_both_no_dnf = (np.sum(y_hat == 0) / y_hat.size) * (np.sum(test_labels_numpy == 0) / test_labels_numpy.size)
+        p_random_agreement = p_both_dnf + p_both_no_dnf
+        kappa_cohen = (accuracy - p_random_agreement) / (1 - p_random_agreement)
+
         if balanced_accuracy != balanced_accuracy:
             print('** Nan problem **')
             print('acc ' + str(accuracy))
@@ -162,8 +169,13 @@ class HistoNet(nn.Module):
             print('np.sum(test_labels_numpy == 1)) ' + str(np.sum(test_labels_numpy == 1)))
             print('np.sum(test_labels_numpy == 0))' + str(np.sum(test_labels_numpy == 0)))
 
-        print('Accuracy of model on test set is {:.2f}%'.format(100 * accuracy))
-        print('Balanced accuracy of model on test set is {:.2f}%'.format(100 * balanced_accuracy))
+        print(Fore.YELLOW)
+        print('\tAccuracy of model on validation set is {:.2f}%'.format(100 * accuracy))
+        print('\tBalanced accuracy of model on test set is {:.2f}%'.format(100 * balanced_accuracy))
+        print('\tSensitivity of model on test set is {:.2f}%'.format(100 * sensitivity))
+        print('\tSpecificity of model on test set is {:.2f}%'.format(100 * specificity))
+        print('\tCohen\'s Kappa : {:.3f}'.format(kappa_cohen))
+        print(Fore.RESET)
         return balanced_accuracy
 
 

@@ -4,6 +4,7 @@ from patch.patch_creator import PatchCreator
 from patch.patch_aggregator import PatchAggregator
 from cnn.neural_network import HistoNet
 from cnn.cross_validation import CrossValidation
+from cnn.majority_voting import MajorityVoting
 from algorithms.algo_utils import save_object, load_object
 from os.path import join, isfile
 import torch
@@ -36,7 +37,7 @@ if __name__ == '__main__':
         patch_creators = [PatchCreator(brain_slices[i], realignements[i], patch_shape) for i in range(len(brain_slices))]
         save_object(patch_creators, join(output_folder, 'patch_creators_8_8'))
     else:
-        patch_creators = load_object(join(output_folder, 'patch_creators'))
+        patch_creators = load_object(join(output_folder, 'patch_creators_8_8'))
 
     if not isfile(join(output_folder, 'patch_aggregator_8_8')):
         patch_aggregator = PatchAggregator(*patch_creators)
@@ -44,15 +45,16 @@ if __name__ == '__main__':
     else:
         patch_aggregator = load_object(join(output_folder, 'patch_aggregator_8_8'))
 
-    histo_net_cnn = HistoNet()
+    cnn = HistoNet()
 
+    if not isfile(join(output_folder, 'cross_val')):
+        cross_val = CrossValidation(cnn, patch_aggregator, join(output_folder, 'hyperparameter_tuning'))
+        save_object(cross_val, join(output_folder, 'cross_val'))
+    else:
+        cross_val = load_object(join(output_folder, 'cross_val'))
 
-    # Parameters
-    # params = {'batch_size': 32,
-    #           'shuffle': True,
-    #           'num_workers': 8}
-    #
-    # dataset = TensorDataset(torch.from_numpy(patch_aggregator.all_patches),
-    #                         torch.from_numpy(patch_aggregator.all_labels))
-    # dataloader = DataLoader(dataset, **params)
-
+    if not isfile(join(output_folder, 'majority_voting')):
+        majority_voting = MajorityVoting(cnn, cross_val.best_hyperparameters, patch_aggregator)
+        save_object(majority_voting, join(output_folder, 'majority_voting'))
+    else:
+        majority_voting = load_object(join(output_folder, 'majority_voting'))

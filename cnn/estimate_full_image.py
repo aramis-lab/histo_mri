@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     patch_aggregator = load_object(join(output_folder, 'patch_aggregator_8_8'))
 
-    dataset_train = patch_aggregator.get_tensor(*['TG03', 'TG05', 'TG06', 'WT03', 'WT04', 'WT05'])
+    dataset_train = patch_aggregator.get_tensor(*['TG03', 'TG05', 'WT03', 'WT05'])
     dataset_test = patch_aggregator.get_tensor(*['TG04', 'WT06'])
 
     if not isfile(join(output_folder, 'image_estimation', 'cnn')):
@@ -89,7 +89,7 @@ if __name__ == '__main__':
                        'shuffle': True,
                        'num_workers': 8}
         dataloader = DataLoader(dataset_train, **best_params)
-        cnn.train_nn(dataloader, lr=0.00251, n_epoch=12, val_data=dataset_test)
+        cnn.train_nn(dataloader, lr=0.0025118864315095794, n_epoch=12, val_data=dataset_test)
         save_object(cnn, join(output_folder, 'image_estimation', 'cnn'))
     else:
         cnn = load_object(join(output_folder, 'image_estimation', 'cnn'))
