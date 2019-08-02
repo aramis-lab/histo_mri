@@ -54,7 +54,11 @@ if __name__ == '__main__':
         cross_val = load_object(join(output_folder, 'cross_val'))
 
     if not isfile(join(output_folder, 'majority_voting')):
-        majority_voting = MajorityVoting(cnn, cross_val.best_hyperparameters, patch_aggregator)
+        majority_voting = MajorityVoting(cross_val.best_hyperparameters,
+                                         patch_aggregator,
+                                         patch_creators,
+                                         realignements,
+                                         join(output_folder, 'results_on_test_set'))
         save_object(majority_voting, join(output_folder, 'majority_voting'))
     else:
         majority_voting = load_object(join(output_folder, 'majority_voting'))

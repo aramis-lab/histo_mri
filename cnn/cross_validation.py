@@ -32,7 +32,7 @@ class CrossValidation:
         :param patch_shape:
         :param in_mat:
         :param output_file:
-        :return:
+        :return: best hyperparameters
         """
 
         mat = np.load(in_mat)
@@ -61,7 +61,8 @@ class CrossValidation:
             file.write('\nidx best fold : ' + str(idx_best_fold))
             file.write('\nBest balanced accuracy (avg across folds): ' + str(np.max(mat_avg)))
 
-        return {'batch_size': batch_size_range[argmax[1]], 'learning_rate': lr_range[argmax[0]], 'epoch': argmax[2]}
+        return {'batch_size': batch_size_range[argmax[1]], 'learning_rate': lr_range[argmax[0]], 'epoch': argmax[2],
+                'train_set': train_set, 'val_set': val_set, 'test_set': test_set}
 
     @staticmethod
     def divide_population():
@@ -96,9 +97,9 @@ class CrossValidation:
     def find_hyper_parameter(self,
                              cnn,
                              data,
-                             n_epochs=6,
-                             lr_range=np.logspace(-3, -1, 6),
-                             batch_size_range=np.array([32, 64]),
+                             n_epochs=10,
+                             lr_range=np.logspace(-4, -1, 15),
+                             batch_size_range=np.array([32]),
                              output_directory=getcwd()):
         """
         :param cnn: Neural net

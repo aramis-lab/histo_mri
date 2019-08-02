@@ -8,6 +8,7 @@ from torch.utils.data.dataloader import DataLoader
 from os.path import isfile
 import numpy as np
 from skimage.transform import warp
+import os
 from patch.patch_aggregator import PatchAggregator
 
 
@@ -20,6 +21,8 @@ class FullImageEstimate:
                                     axis=1)
 
         self.image_name = patch_creator.name
+
+        # This section obtains the estimation from the CNN HistoNet
         self.probability_map_dnf = np.zeros(mri_shape)
         self.probability_map_no_dnf = np.zeros(mri_shape)
         for lab, coord in zip(labels_estimate, patch_creator.mri_coordinates):
@@ -47,31 +50,71 @@ class FullImageEstimate:
                                                realignment.transformation_matrix,
                                                output_shape=mri_shape)
 
-    def show_estimate(self):
+        # This section obtains a ground truth based on the real label
+        self.ground_truth_from_patches = np.zeros(mri_shape)
+        self.gt_dnf = np.zeros(mri_shape)
+        self.gt_no_dnf = np.zeros(mri_shape)
+        for lab, coord in zip(patch_creator.labels, patch_creator.mri_coordinates):
+            patch_location = Image.new('1', mri_shape, color=0)
+            ImageDraw.Draw(patch_location).polygon(list(((tuple(co) for co in coord))),
+                                                   outline=1,
+                                                   fill=1)
+            idx = np.where(np.array(patch_location))
+            if lab == 2:
+                self.gt_no_dnf[idx] += 1
+            elif lab == 1:
+                self.gt_dnf[idx] += 1
+
+        self.gt_no_dnf = np.transpose(self.gt_no_dnf)
+        self.gt_dnf = np.transpose(self.gt_dnf)
+
+        self.gt_no_dnf /= np.max(self.gt_no_dnf)
+        self.gt_dnf /= np.max(self.gt_dnf)
+
+    @staticmethod
+    def produce_estimate(mri_shape, labels, mri_coordinates):
+        pass
+
+    def show_estimate(self, output_dir):
+
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
 
         myfig = plt.figure(3)
-        myfig.suptitle('Estimation of labels in ' + self.image_name, fontsize=12)
+        myfig.suptitle('Estimation of labels in ' + self.image_name, fontsize=7)
 
-        plt.subplot(2, 2, 1)
+        f, ax1 = plt.subplot(2, 3, 1)
         plt.imshow(self.probability_map_no_dnf)
-        plt.title('Probability map NO DNF')
+        plt.title('Probability map NO DNF', fontsize=7)
+        ax1[0, 0].axis('off')
 
-        plt.subplot(2, 2, 2)
+        f, ax2 = plt.subplot(2, 3, 2)
         plt.imshow(self.probability_map_dnf)
-        plt.title('Probability map DNF')
+        plt.title('Probability map DNF', fontsize=7)
+        ax2[0, 0].axis('off')
 
-        plt.subplot(2, 2, 3)
+        f, ax3 = plt.subplot(2, 3, 3)
         plt.imshow(np.stack([self.probability_map_dnf,
                              self.probability_map_no_dnf,
                              np.zeros(self.probability_map_dnf.shape)],
                             axis=2))
-        plt.title('Combined probability')
+        plt.title('Combined probability', fontsize=7)
+        ax3[0, 0].axis('off')
 
-        plt.subplot(2, 2, 4)
+        f, ax4 = plt.subplot(2, 3, 4)
         plt.imshow(self.warped_labels_ground_truth)
-        plt.title('Ground truth')
+        plt.title('labelized image warped to MR', fontsize=7)
+        ax4[0, 0].axis('off')
 
-        plt.show()
+        f, ax5 = plt.subplot(2, 3, 5)
+        plt.imshow(np.stack([self.gt_dnf,
+                             self.gt_no_dnf,
+                             np.zeros((384, 384))],
+                            axis=2))
+        plt.title('Ground truth')
+        ax5[0, 0].axis('off')
+
+        plt.savefig(join(output_dir, self.image_name + '_estimation.png'), dpi=600)
 
 
 if __name__ == '__main__':
@@ -109,4 +152,4 @@ if __name__ == '__main__':
 
     for n in [1, 7]:
         img_estimate = FullImageEstimate(cnn, patch_creators[n], realignements[n], (384, 384))
-        img_estimate.show_estimate()
+        img_estimate.show_estimate(output_folder)
