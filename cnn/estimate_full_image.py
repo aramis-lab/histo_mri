@@ -71,6 +71,13 @@ class FullImageEstimate:
         self.gt_no_dnf /= np.max(self.gt_no_dnf)
         self.gt_dnf /= np.max(self.gt_dnf)
 
+        self.image_estimation = self.pixel_wise_classification(patch_creator.mri_coordinates,
+                                                               labels_estimate,
+                                                               mri_shape)
+        self.ground_truth_pixelwise = self.pixel_wise_classification(patch_creator.mri_coordinates,
+                                                                     patch_creator.labels,
+                                                                     mri_shape)
+
     @staticmethod
     def produce_estimate(mri_shape, labels, mri_coordinates):
         pass
@@ -83,38 +90,70 @@ class FullImageEstimate:
         myfig = plt.figure(3)
         myfig.suptitle('Estimation of labels in ' + self.image_name, fontsize=7)
 
-        f, ax1 = plt.subplot(2, 3, 1)
+        ax = plt.subplot(3, 2, 1)
         plt.imshow(self.probability_map_no_dnf)
         plt.title('Probability map NO DNF', fontsize=7)
-        ax1[0, 0].axis('off')
+        ax.axis('off')
 
-        f, ax2 = plt.subplot(2, 3, 2)
+        ax = plt.subplot(3, 2, 2)
         plt.imshow(self.probability_map_dnf)
         plt.title('Probability map DNF', fontsize=7)
-        ax2[0, 0].axis('off')
+        ax.axis('off')
 
-        f, ax3 = plt.subplot(2, 3, 3)
+        # ax = plt.subplot(4, 2, 4)
+        # plt.imshow(self.warped_labels_ground_truth)
+        # plt.title('labelized image warped to MR', fontsize=7)
+        # ax.axis('off')
+
+        ax = plt.subplot(3, 2, 3)
         plt.imshow(np.stack([self.probability_map_dnf,
                              self.probability_map_no_dnf,
                              np.zeros(self.probability_map_dnf.shape)],
                             axis=2))
-        plt.title('Combined probability', fontsize=7)
-        ax3[0, 0].axis('off')
+        plt.title('2 maps of probability stacked', fontsize=7)
+        ax.axis('off')
 
-        f, ax4 = plt.subplot(2, 3, 4)
-        plt.imshow(self.warped_labels_ground_truth)
-        plt.title('labelized image warped to MR', fontsize=7)
-        ax4[0, 0].axis('off')
-
-        f, ax5 = plt.subplot(2, 3, 5)
+        ax = plt.subplot(3, 2, 4)
         plt.imshow(np.stack([self.gt_dnf,
                              self.gt_no_dnf,
                              np.zeros((384, 384))],
                             axis=2))
-        plt.title('Ground truth')
-        ax5[0, 0].axis('off')
+        plt.title('Ground truth probability maps', fontsize=7)
+        ax.axis('off')
 
-        plt.savefig(join(output_dir, self.image_name + '_estimation.png'), dpi=600)
+        ax = plt.subplot(3, 2, 5)
+        plt.imshow(self.image_estimation, vmin=0, vmax=2)
+        plt.title('image estimation pixelwise', fontsize=7)
+        ax.axis('off')
+
+        ax = plt.subplot(3, 2, 6)
+        plt.imshow(self.ground_truth_pixelwise, vmin=0, vmax=2)
+        plt.title('ground truth pixelwise', fontsize=7)
+        ax.axis('off')
+
+        plt.savefig(join(output_dir, self.image_name + '_estimation.png'), dpi=800)
+
+        # TODO image is scaled differently if there is only one label, which can happen in
+        # the ground truth image
+
+    @staticmethod
+    def pixel_wise_classification(mri_coordinates, labels_estimate, mri_shape):
+        count_dnf = np.zeros(mri_shape)
+        count_no_dnf = np.zeros(mri_shape)
+        for lab, coord in zip(labels_estimate, mri_coordinates):
+            patch_location = Image.new('1', mri_shape, color=0)
+            ImageDraw.Draw(patch_location).polygon(list(((tuple(co) for co in coord))),
+                                                   outline=1,
+                                                   fill=1)
+            idx = np.where(np.array(patch_location))
+            if lab == 0 or lab == 2:
+                count_no_dnf[idx] += 1
+            elif lab == 1:
+                count_dnf[idx] += 1
+        count_total = np.stack([np.zeros(mri_shape),
+                                count_no_dnf,
+                                count_dnf], axis=2)
+        return np.transpose(np.argmax(count_total, axis=2))
 
 
 if __name__ == '__main__':

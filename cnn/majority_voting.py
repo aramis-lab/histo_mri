@@ -5,6 +5,7 @@ from patch.patch_creator import PatchCreator
 from torch.utils.data.dataset import TensorDataset
 from cnn.estimate_full_image import FullImageEstimate
 from algorithms.inter_modality_matching import InterModalityMatching
+from sklearn.dummy import DummyClassifier
 from typing import List
 import numpy as np
 import os
@@ -15,7 +16,7 @@ class MajorityVoting:
     def __init__(self, best_parameters: dict,
                  patch_aggregator: PatchAggregator,
                  patch_creators: List[PatchCreator],
-                 realignments: InterModalityMatching,
+                 realignments: List[InterModalityMatching],
                  output_dir: str):
         """
         :param best_parameters: dictionnary of best parameters obtained with CrossValidation class
@@ -29,6 +30,18 @@ class MajorityVoting:
                                                                 patch_creators,
                                                                 realignments,
                                                                 output_dir)
+
+        self.dummy_classifier_balanced_accuracy = self.evaluate_dummy_classifier_on_test_set(best_parameters,
+                                                                                             patch_aggregator)
+
+    def __repr__(self):
+        x = '** Majority voting ** \n'
+        for i, (val_ba, test_ba, dummy_ba) in enumerate(zip(self.val_balanced_accuracy,
+                                                            self.test_balanced_accuracy,
+                                                            self.dummy_classifier_balanced_accuracy)):
+            x += 'Balanced accuracy on fold ' + str(i) + ' : val set : {:.3f}    test set : {:.3f}   dummy : {:.3f}\n'.format(np.max(val_ba), test_ba, dummy_ba)
+            # Only 2 lines are printed here !
+        return x
 
     def train_across_folds(self, best_parameters, patch_aggregator):
         epochs = 10
@@ -69,3 +82,31 @@ class MajorityVoting:
                 img_estimation.show_estimate(os.path.join(output_folder, 'fold_' + str(i)))
 
         return balanced_accuracy
+
+    def evaluate_dummy_classifier_on_test_set(self, best_parameters, patch_aggregator):
+        dummy_balanced_accuracy = []
+        for i in range(len(best_parameters['test_set'])):
+            dummy_balanced_accuracy.append(self.dummy_classification(best_parameters['train_set'][i],
+                                                                     best_parameters['test_set'],
+                                                                     patch_aggregator))
+        return dummy_balanced_accuracy
+
+    def dummy_classification(self, train_set, test_set, patch_aggregator):
+        return self.evaluate_dummy_classifier(patch_aggregator.get_tensor(*train_set),
+                                              patch_aggregator.get_tensor(*test_set))
+
+    @staticmethod
+    def evaluate_dummy_classifier(train_set: TensorDataset,
+                                  test_set: TensorDataset):
+        train_label_numpy = train_set.tensors[1].detach().numpy()
+        test_label_numpy = test_set.tensors[1].detach().numpy()
+
+        dummy_classifier = DummyClassifier('stratified')
+        dummy_classifier.fit(train_set.tensors[0].detach().numpy(), train_label_numpy)
+        dummy_y = dummy_classifier.predict(test_set.tensors[0].detach().numpy())
+
+        sensitivity = np.divide(np.sum((dummy_y == test_label_numpy) * (test_label_numpy == 1)),
+                                np.sum(test_label_numpy == 1))
+        specificity = np.divide(np.sum((dummy_y == test_label_numpy) * (test_label_numpy == 0)),
+                                np.sum(test_label_numpy == 0))
+        return (sensitivity + specificity) / 2

@@ -59,6 +59,7 @@ if __name__ == '__main__':
                                          patch_creators,
                                          realignements,
                                          join(output_folder, 'results_on_test_set'))
+        print(majority_voting)
         save_object(majority_voting, join(output_folder, 'majority_voting'))
     else:
         majority_voting = load_object(join(output_folder, 'majority_voting'))
