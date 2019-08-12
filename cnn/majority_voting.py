@@ -44,7 +44,7 @@ class MajorityVoting:
         return x
 
     def train_across_folds(self, best_parameters, patch_aggregator):
-        epochs = 10
+        epochs = 1
         balanced_accuracy = np.zeros((len(self.cnn_pool), epochs))
         for i in range(len(self.cnn_pool)):
             current_params = {'batch_size': int(best_parameters['batch_size']),
@@ -85,7 +85,7 @@ class MajorityVoting:
 
     def evaluate_dummy_classifier_on_test_set(self, best_parameters, patch_aggregator):
         dummy_balanced_accuracy = []
-        for i in range(len(best_parameters['test_set'])):
+        for i in range(len(best_parameters['train_set'])):
             dummy_balanced_accuracy.append(self.dummy_classification(best_parameters['train_set'][i],
                                                                      best_parameters['test_set'],
                                                                      patch_aggregator))
