@@ -5,6 +5,7 @@ from scipy.ndimage.measurements import label
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 import numpy as np
+import random
 import copy
 
 
@@ -24,7 +25,7 @@ class RandomSegmentation:
             if count != 0:
                 n_px = np.sum(labeled_mask == lab)
                 R = np.round(np.sqrt(n_px / np.pi))
-                possible_idx = np.where(np.array(new_random_segmentation))
+                possible_idx = np.where(np.array(new_random_segmentation) == 1)
                 try_number = 0
                 while True:
                     # Must check that the circle does not overlap with existing segmentation
@@ -37,29 +38,54 @@ class RandomSegmentation:
                     random_draw_center = np.random.choice(np.arange(possible_idx[0].size), size=1, replace=False)
                     center_idx = tuple((possible_idx[0][random_draw_center[0]],
                                         possible_idx[1][random_draw_center[0]]))
-                    print('Drawing circle n# ' + str(count + 1) + '/' + str(num_features)
-                          + ' of radius ' + str(R) + ' at position ' + str(center_idx) + ' - try number '
+                    choices = ['circle', 'rectangle']
+                    choice = np.random.choice(choices, size=1)[0]
+                    print('Drawing ' + choice + ' n# ' + str(count + 1) + '/' + str(num_features)
+                          + ' of radius ' + str(int(R)) + ' at position ' + str(center_idx) + ' - try number '
                           + str(try_number))
-                    current_circle = Image.new('1', in_label.shape[::-1], 0)
-                    ImageDraw.Draw(current_circle).ellipse((center_idx[1] - R,
-                                                            center_idx[0] - R,
-                                                            center_idx[1] + R,
-                                                            center_idx[0] + R),
-                                                           outline=0,
-                                                           fill=1)
-                    current_circle_numpy = np.array(current_circle)
 
-                    new_random_segmentation_numpy = np.array(new_random_segmentation)
-                    new_random_segmentation_numpy_mask = np.logical_or(new_random_segmentation_numpy == 0,
-                                                                       new_random_segmentation_numpy == 2)
-                    one_percent_threshold = np.round(np.pi * (R ** 2) / 100)
-                    if np.sum(np.logical_and(current_circle_numpy, new_random_segmentation_numpy_mask)) <= one_percent_threshold:
-                        ImageDraw.Draw(new_random_segmentation).ellipse((center_idx[1] - R,
-                                                                         center_idx[0] - R,
-                                                                         center_idx[1] + R,
-                                                                         center_idx[0] + R),
-                                                                        outline=0,
-                                                                        fill=2)
+                    if choice == 'circle':
+                        current_circle = Image.new('1', (2 * int(R), 2 * int(R)), 0)
+                        ImageDraw.Draw(current_circle).ellipse((0,
+                                                                0,
+                                                                2 * R,
+                                                                2 * R),
+                                                               outline=0,
+                                                               fill=1)
+                        current_shape_numpy = np.array(current_circle)
+
+                        new_random_segmentation_crop = new_random_segmentation.crop((center_idx[1] - R,
+                                                                                     center_idx[0] - R,
+                                                                                     center_idx[1] + R,
+                                                                                     center_idx[0] + R))
+                        new_random_segmentation_crop_numpy = np.array(new_random_segmentation_crop)
+                        new_random_segmentation_numpy_mask = new_random_segmentation_crop_numpy != 1
+
+                        one_percent_threshold = np.round(np.pi * (R ** 2) / 100)
+
+                    if choice == 'rectangle':
+                        ratio_H_W = random.uniform(0, 1)
+                        width = np.sqrt(n_px / ratio_H_W)
+                        height = ratio_H_W * width
+                        random_rotation = random.uniform(0, 2 * np.pi)
+                        
+                        current_rectangle = Image.new('1',  ,0)
+
+                    if np.sum(np.logical_and(current_shape_numpy, new_random_segmentation_numpy_mask)) <= one_percent_threshold:
+                        if choice == 'circle':
+                            ImageDraw.Draw(new_random_segmentation).ellipse((center_idx[1] - R,
+                                                                             center_idx[0] - R,
+                                                                             center_idx[1] + R,
+                                                                             center_idx[0] + R),
+                                                                            outline=0,
+                                                                            fill=2)
+                        if choice == 'rectangle':
+                            ImageDraw.Draw(new_random_segmentation).ellipse((center_idx[1] - R,
+                                                                             center_idx[0] - R,
+                                                                             center_idx[1] + R,
+                                                                             center_idx[0] + R),
+                                                                            outline=0,
+                                                                            fill=2)
                         break
                     else:
                         print('Coliding pixels must be <= ' + str(one_percent_threshold) + ' but found : '
