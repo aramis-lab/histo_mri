@@ -57,9 +57,9 @@ class RandomSegmentation:
                     choice = np.random.choice(choices, size=1)[0]
 
                     if choice == 'circle':
-                        print('Drawing ' + choice + ' n# ' + str(count + 1) + '/' + str(num_features)
-                              + ' of radius ' + str(int(R)) + ' at position ' + str(center_idx) + ' - try number '
-                              + str(try_number))
+                        print('[' + basename(original_labels)[6:10].upper() + '] Drawing ' + choice + ' n# '
+                              + str(count + 1) + '/' + str(num_features) + ' of radius ' + str(int(R))
+                              + ' at position ' + str(center_idx) + ' - try number ' + str(try_number))
                         current_circle = Image.new('1', (2 * int(R), 2 * int(R)), 0)
                         ImageDraw.Draw(current_circle).ellipse((0,
                                                                 0,
@@ -88,9 +88,10 @@ class RandomSegmentation:
                             if not any(dim % 2 != 0 for dim in bounding_box_rectangle):
                                 is_even = True
 
-                        print('Drawing ' + choice + ' n# ' + str(count + 1) + '/' + str(num_features)
-                              + ' of dims ' + str((width, height)) + ' with angle ' + str(180.0 * theta / np.pi)
-                              + '° at position ' + str(center_idx) + ' - try number ' + str(try_number))
+                        print('[' + basename(original_labels)[6:10].upper() + '] Drawing ' + choice + ' n# '
+                              + str(count + 1) + '/' + str(num_features) + ' of dims ' + str((width, height))
+                              + ' with angle ' + str(180.0 * theta / np.pi) + '° at position ' + str(center_idx)
+                              + ' - try number ' + str(try_number))
 
                         current_rectangle = Image.new('1', bounding_box_rectangle, 0)
                         ImageDraw.Draw(current_rectangle).polygon([(0, width * np.sin(theta)),
@@ -129,13 +130,13 @@ class RandomSegmentation:
                                                                             fill=2)
                         break
                     else:
-                        print('Coliding pixels must be <= ' + str(one_percent_threshold) + ' but found : '
+                        print('\tColiding pixels must be <= ' + str(one_percent_threshold) + ' but found : '
                               + str(np.sum(np.logical_and(current_shape_numpy, new_random_segmentation_numpy_mask))))
         return np.array(new_random_segmentation, dtype='int8')
 
     def generate_random_segmentation(self, path_to_segmentation, output_directory):
         random_seg = self.perform_random_segmentation(path_to_segmentation)
-        np.save(join(output_directory, splitext(basename(path_to_segmentation))[0] + '_' + str(uuid.uuid4())[:4], random_seg))
+        np.save(join(output_directory, splitext(basename(path_to_segmentation))[0] + '_' + str(uuid.uuid4())[:4]), random_seg)
 
     @staticmethod
     def get_patch_creator(processed_brainslice: PreprocessedBrainSlice,
