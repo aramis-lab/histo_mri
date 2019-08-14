@@ -152,6 +152,15 @@ class RandomSegmentation:
 
 
 if __name__ == '__main__':
-    labelZ = '/Users/arnaud.marcoux/histo_mri/images/TG03/label_tg03.npy'
-    output_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/random_segmentation/tg03'
-    test = RandomSegmentation(labelZ, 15, output_dir)
+    # Generation of random segmentation
+
+    in_dir = '/Users/arnaud.marcoux/histo_mri/images/'
+    out_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/random_segmentation'
+    mouse_names = ['TG0' + str(i) for i in [3, 4, 5, 6]] + ['WT0' + str(i) for i in [3, 4, 5, 6]]
+
+    for name in mouse_names:
+        dest_folder = join(out_dir, name)
+        mkdir(dest_folder)
+        current_random_seg = RandomSegmentation(path_to_labels=join(in_dir, name, 'label_' + str(name.lower()) + '.npy'),
+                                                n_segmentation=15,
+                                                output_directory=dest_folder)
