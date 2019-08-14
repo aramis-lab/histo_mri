@@ -2,15 +2,32 @@ from patch.patch_creator import PatchCreator
 from input.preprocessed_brain_slice import PreprocessedBrainSlice
 from algorithms.inter_modality_matching import InterModalityMatching
 from scipy.ndimage.measurements import label
+from multiprocessing import Pool, cpu_count
+from functools import partial
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
+from os.path import join, basename, isdir, splitext
+from os import mkdir
+import uuid
 import numpy as np
 import random
 
 
 class RandomSegmentation:
 
-    def __init__(self, original_labels: str):
+    def __init__(self, path_to_labels: str, n_segmentation: int, output_directory: str):
+
+        generate_random_segmentation_partial = partial(self.generate_random_segmentation,
+                                                       output_directory=output_directory)
+
+        if not isdir(output_directory):
+            mkdir(output_directory)
+
+        original_segmentation_list = [path_to_labels] * n_segmentation
+        pool = Pool(processes=cpu_count())
+        pool.map(generate_random_segmentation_partial, original_segmentation_list)
+
+    def perform_random_segmentation(self, original_labels: str):
         in_label = np.load(original_labels)
         labeled_mask, num_features = label(in_label == 1)
         mask_slice = in_label != 0
@@ -58,7 +75,7 @@ class RandomSegmentation:
                                                                                      center_idx[0] + R))
                         one_percent_threshold = np.round(np.pi * (R ** 2) / 100)
 
-                    if choice == 'rectangle':
+                    elif choice == 'rectangle':
                         # Even dimension for the bounding box are necessary to avoid dimension mismatch
                         is_even = False
                         while is_even is False:
@@ -104,10 +121,6 @@ class RandomSegmentation:
                         if choice == 'rectangle':
                             left = center_idx[1] - bounding_box_rectangle[0] / 2
                             upper = center_idx[0] - bounding_box_rectangle[1] / 2
-                            print([(left, upper + width * np.sin(theta)),
-                                   (left + height * np.sin(theta), upper + bounding_box_rectangle[1]),
-                                   (left + bounding_box_rectangle[0], upper + bounding_box_rectangle[1] - width * np.sin(theta)),
-                                   (left + width * np.cos(theta), upper)])
                             ImageDraw.Draw(new_random_segmentation).polygon([(left, upper + width * np.sin(theta)),
                                                                              (left + height * np.sin(theta), upper + bounding_box_rectangle[1]),
                                                                              (left + bounding_box_rectangle[0], upper + bounding_box_rectangle[1] - width * np.sin(theta)),
@@ -118,8 +131,11 @@ class RandomSegmentation:
                     else:
                         print('Coliding pixels must be <= ' + str(one_percent_threshold) + ' but found : '
                               + str(np.sum(np.logical_and(current_shape_numpy, new_random_segmentation_numpy_mask))))
-        plt.imshow(np.array(new_random_segmentation))
-        plt.show()
+        return np.array(new_random_segmentation, dtype='int8')
+
+    def generate_random_segmentation(self, path_to_segmentation, output_directory):
+        random_seg = self.perform_random_segmentation(path_to_segmentation)
+        np.save(join(output_directory, splitext(basename(path_to_segmentation))[0] + '_' + str(uuid.uuid4())[:4], random_seg))
 
     @staticmethod
     def get_patch_creator(processed_brainslice: PreprocessedBrainSlice,
@@ -137,4 +153,5 @@ class RandomSegmentation:
 
 if __name__ == '__main__':
     labelZ = '/Users/arnaud.marcoux/histo_mri/images/TG03/label_tg03.npy'
-    test = RandomSegmentation(labelZ)
+    output_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/random_segmentation/tg03'
+    test = RandomSegmentation(labelZ, 15, output_dir)
