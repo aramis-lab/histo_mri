@@ -18,7 +18,7 @@ class CrossValidation:
         self.hyperparameter_matrix, self.best_hyperparameters = self.find_hyper_parameter(cnn,
                                                                                           data_aggreagator,
                                                                                           output_directory=output_folder,
-                                                                                          n_epochs=15)
+                                                                                          n_epochs=10)
 
     @staticmethod
     def write_informations(n_epoch, lr_range, batch_size_range, train_set, val_set, test_set, patch_shape, in_mat, output_file):
@@ -81,8 +81,8 @@ class CrossValidation:
         tg = [elem for elem in tg if elem != test_tg]
         wt = [elem for elem in wt if elem != test_wt]
 
-        kf_tg = KFold(n_splits=n_tg - 1, shuffle=True)
-        kf_wt = KFold(n_splits=n_wt - 1, shuffle=True)
+        kf_tg = KFold(n_splits=n_tg - 1, shuffle=True, random_state=10)
+        kf_wt = KFold(n_splits=n_wt - 1, shuffle=True, random_state=11)
 
         train_set = []
         val_set = []
@@ -98,8 +98,8 @@ class CrossValidation:
                              cnn,
                              data,
                              n_epochs=10,
-                             lr_range=np.logspace(-4, -1, 15),
-                             batch_size_range=np.array([32]),
+                             lr_range=np.logspace(-4, -1, 8),
+                             batch_size_range=np.array([32, 64]),
                              output_directory=getcwd()):
         """
         :param cnn: Neural net

@@ -63,3 +63,4 @@ if __name__ == '__main__':
         save_object(majority_voting, join(output_folder, 'majority_voting'))
     else:
         majority_voting = load_object(join(output_folder, 'majority_voting'))
+        print(majority_voting)

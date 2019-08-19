@@ -133,9 +133,6 @@ class FullImageEstimate:
 
         plt.savefig(join(output_dir, self.image_name + '_estimation.png'), dpi=800)
 
-        # TODO image is scaled differently if there is only one label, which can happen in
-        # the ground truth image
-
     @staticmethod
     def pixel_wise_classification(mri_coordinates, labels_estimate, mri_shape):
         count_dnf = np.zeros(mri_shape)
@@ -160,24 +157,32 @@ if __name__ == '__main__':
     output_folder = '/Users/arnaud.marcoux/histo_mri/pickled_data'
 
     patch_aggregator = load_object(join(output_folder, 'patch_aggregator_8_8'))
+    realignements = load_object(join(output_folder, 'realignements'))
+    patch_creators = load_object(join(output_folder, 'patch_creators_8_8'))
 
-    dataset_train = patch_aggregator.get_tensor(*['TG03', 'TG05', 'WT03', 'WT05'])
-    dataset_test = patch_aggregator.get_tensor(*['TG04', 'WT06'])
+    train_set = [['TG05', 'TG06', 'WT04', 'WT05'],
+                 ['TG03', 'TG05', 'WT03', 'WT04'],
+                 ['TG03', 'TG06', 'WT03', 'WT05']]
+    val_set = [['TG03', 'WT03'],
+               ['TG06', 'WT05'],
+               ['TG05', 'WT04']]
+    test_set = ['TG04', 'WT06']
 
-    if not isfile(join(output_folder, 'image_estimation', 'cnn')):
+    folds = len(train_set)
+
+    dataset_test = patch_aggregator.get_tensor(*test_set)
+
+    for i, training in enumerate(train_set):
+        dataset_train = patch_aggregator.get_tensor(*training)
         cnn = HistoNet()
-
         best_params = {'batch_size': 64,
                        'shuffle': True,
                        'num_workers': 8}
         dataloader = DataLoader(dataset_train, **best_params)
-        cnn.train_nn(dataloader, lr=0.0025118864315095794, n_epoch=12, val_data=dataset_test)
-        save_object(cnn, join(output_folder, 'image_estimation', 'cnn'))
-    else:
-        cnn = load_object(join(output_folder, 'image_estimation', 'cnn'))
-
-    realignements = load_object(join(output_folder, 'realignements'))
-    patch_creators = load_object(join(output_folder, 'patch_creators_8_8'))
+        cnn.train_nn(dataloader, lr=0.1, n_epoch=2, val_data=dataset_test)
+        for n in [1, 7]:
+            img_estimate = FullImageEstimate(cnn, patch_creators[n], realignements[n], (384, 384))
+            img_estimate.show_estimate(output_folder)
 
     # Choose what slice to display
     # n = 0 -> TG03
@@ -188,7 +193,3 @@ if __name__ == '__main__':
     # n = 5 -> WT04
     # n = 6 -> WT05
     # n = 7 -> WT06
-
-    for n in [1, 7]:
-        img_estimate = FullImageEstimate(cnn, patch_creators[n], realignements[n], (384, 384))
-        img_estimate.show_estimate(output_folder)

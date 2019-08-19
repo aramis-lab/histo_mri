@@ -44,7 +44,7 @@ class MajorityVoting:
         return x
 
     def train_across_folds(self, best_parameters, patch_aggregator):
-        epochs = 1
+        epochs = 2
         balanced_accuracy = np.zeros((len(self.cnn_pool), epochs))
         for i in range(len(self.cnn_pool)):
             current_params = {'batch_size': int(best_parameters['batch_size']),

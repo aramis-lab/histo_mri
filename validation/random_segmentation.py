@@ -8,7 +8,7 @@ from scipy.ndimage.morphology import binary_erosion, binary_dilation
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 from os.path import join, basename, isdir, splitext
-from os import mkdir
+from os import mkdir, listdir
 import uuid
 import numpy as np
 import random
@@ -89,7 +89,7 @@ class RandomSegmentation:
                             width = np.sqrt(n_px / ratio_H_W)
                             height = np.int(ratio_H_W * width)
                             width = np.int(width)
-                            theta = random.uniform(0, np.pi / 2)
+                            theta = random.uniform(0, np.pi)
                             bounding_box_rectangle = self.get_bounding_box_rectangle(width, height, theta)
                             if not any(dim % 2 != 0 for dim in bounding_box_rectangle):
                                 is_even = True
@@ -157,16 +157,32 @@ class RandomSegmentation:
         return (np.round(2 * half_diag * np.cos(np.arctan(height / width) - theta)).astype('int'),
                 np.round(2 * half_diag * np.sin(np.arctan(height / width) + theta)).astype('int'))
 
+    @staticmethod
+    def display_all_random_segmentation(input_folder: str):
+        assert isdir(input_folder), input_folder + ' is not a folder'
+        all_segmentations = [join(input_folder, f) for f in listdir(input_folder) if f.endswith('.npy')]
+        plt.figure(0)
+        plt.title(basename(input_folder))
+        for i, filename in enumerate(all_segmentations):
+            ax = plt.subplot(3, 5, i + 1)
+            plt.imshow(np.load(filename))
+            plt.title(filename[-8:-4], fontsize=5)
+            ax.axis('off')
+        plt.savefig(join(input_folder, 'summary_segmentation'), dpi=1000)
+
+
 
 if __name__ == '__main__':
     # Generation of random segmentation
 
     in_dir = '/Users/arnaud.marcoux/histo_mri/images/'
     out_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/random_segmentation'
-    mouse_names = ['TG0' + str(i) for i in [4, 5, 6]] + ['WT0' + str(i) for i in [3, 4, 5, 6]]
-
+    mouse_names = ['TG0' + str(i) for i in [3, 4, 5, 6]] + ['WT0' + str(i) for i in [3, 4, 5, 6]]
+    mouse_names = ['TG06']
     for name in mouse_names:
         dest_folder = join(out_dir, name)
+        RandomSegmentation.display_all_random_segmentation(dest_folder)
+        assert False
         try:
             mkdir(dest_folder)
         except:
@@ -174,3 +190,4 @@ if __name__ == '__main__':
         current_random_seg = RandomSegmentation(path_to_labels=join(in_dir, name, 'label_' + str(name.lower()) + '.npy'),
                                                 n_segmentation=15,
                                                 output_directory=dest_folder)
+        current_random_seg.display_all_random_segmentation(dest_folder)
