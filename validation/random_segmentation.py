@@ -4,6 +4,7 @@ from algorithms.inter_modality_matching import InterModalityMatching
 from scipy.ndimage.measurements import label
 from multiprocessing import Pool, cpu_count
 from functools import partial
+from scipy.ndimage.morphology import binary_erosion, binary_dilation
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 from os.path import join, basename, isdir, splitext
@@ -22,14 +23,19 @@ class RandomSegmentation:
 
         if not isdir(output_directory):
             mkdir(output_directory)
-
+        print('Start pooling for creation of a random segmentation based on ' + str(path_to_labels))
         original_segmentation_list = [path_to_labels] * n_segmentation
         pool = Pool(processes=cpu_count())
         pool.map(generate_random_segmentation_partial, original_segmentation_list)
+        pool.close()
 
     def perform_random_segmentation(self, original_labels: str):
         in_label = np.load(original_labels)
         labeled_mask, num_features = label(in_label == 1)
+        if num_features > 500:
+            dnf_mask_eroded = binary_erosion(in_label == 1, structure=np.ones((3, 3)))
+            dnf_mask_dilated = binary_dilation(dnf_mask_eroded, structure=np.ones((3, 3)))
+            labeled_mask, num_features = label(dnf_mask_dilated)
         mask_slice = in_label != 0
 
         new_random_segmentation = Image.fromarray(mask_slice.astype('int8'))
@@ -157,11 +163,14 @@ if __name__ == '__main__':
 
     in_dir = '/Users/arnaud.marcoux/histo_mri/images/'
     out_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/random_segmentation'
-    mouse_names = ['TG0' + str(i) for i in [3, 4, 5, 6]] + ['WT0' + str(i) for i in [3, 4, 5, 6]]
+    mouse_names = ['TG0' + str(i) for i in [4, 5, 6]] + ['WT0' + str(i) for i in [3, 4, 5, 6]]
 
     for name in mouse_names:
         dest_folder = join(out_dir, name)
-        mkdir(dest_folder)
+        try:
+            mkdir(dest_folder)
+        except:
+            pass
         current_random_seg = RandomSegmentation(path_to_labels=join(in_dir, name, 'label_' + str(name.lower()) + '.npy'),
                                                 n_segmentation=15,
                                                 output_directory=dest_folder)
