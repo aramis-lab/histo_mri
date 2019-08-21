@@ -89,7 +89,7 @@ class RandomSegmentation:
                             width = np.sqrt(n_px / ratio_H_W)
                             height = np.int(ratio_H_W * width)
                             width = np.int(width)
-                            theta = random.uniform(0, np.pi)
+                            theta = random.uniform(0, np.pi / 2)
                             bounding_box_rectangle = self.get_bounding_box_rectangle(width, height, theta)
                             if not any(dim % 2 != 0 for dim in bounding_box_rectangle):
                                 is_even = True
@@ -138,7 +138,12 @@ class RandomSegmentation:
                     else:
                         print('\tColiding pixels must be <= ' + str(one_percent_threshold) + ' but found : '
                               + str(np.sum(np.logical_and(current_shape_numpy, new_random_segmentation_numpy_mask))))
-        return np.array(new_random_segmentation, dtype='int8')
+        dst = np.array(new_random_segmentation, dtype='int8')
+        dst[dst == 1] = 10
+        dst[dst == 2] = 20
+        dst[dst == 10] = 2
+        dst[dst == 20] = 1
+        return dst
 
     def generate_random_segmentation(self, path_to_segmentation, output_directory):
         random_seg = self.perform_random_segmentation(path_to_segmentation)
@@ -171,21 +176,19 @@ class RandomSegmentation:
         plt.savefig(join(input_folder, 'summary_segmentation'), dpi=1000)
 
 
-
 if __name__ == '__main__':
     # Generation of random segmentation
 
     in_dir = '/Users/arnaud.marcoux/histo_mri/images/'
     out_dir = '/Users/arnaud.marcoux/histo_mri/pickled_data/random_segmentation'
     mouse_names = ['TG0' + str(i) for i in [3, 4, 5, 6]] + ['WT0' + str(i) for i in [3, 4, 5, 6]]
-    mouse_names = ['TG06']
+    mouse_names = ['TG0' + str(i) for i in [3, 4, 5, 6]]
     for name in mouse_names:
         dest_folder = join(out_dir, name)
         RandomSegmentation.display_all_random_segmentation(dest_folder)
-        assert False
         try:
             mkdir(dest_folder)
-        except:
+        except FileExistsError:
             pass
         current_random_seg = RandomSegmentation(path_to_labels=join(in_dir, name, 'label_' + str(name.lower()) + '.npy'),
                                                 n_segmentation=15,

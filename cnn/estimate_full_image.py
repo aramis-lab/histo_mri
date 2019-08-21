@@ -154,7 +154,7 @@ class FullImageEstimate:
 
 
 if __name__ == '__main__':
-    output_folder = '/Users/arnaud.marcoux/histo_mri/pickled_data'
+    output_folder = '/Users/arnaud.marcoux/histo_mri/pickled_data/test'
 
     patch_aggregator = load_object(join(output_folder, 'patch_aggregator_8_8'))
     realignements = load_object(join(output_folder, 'realignements'))
