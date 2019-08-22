@@ -174,6 +174,9 @@ class HistoNet(nn.Module):
         print('\tBalanced accuracy of model on validation set is {:.2f}%'.format(100 * balanced_accuracy))
         print('\tSensitivity of model on validation set is {:.2f}%'.format(100 * sensitivity))
         print('\tSpecificity of model on validation set is {:.2f}%'.format(100 * specificity))
+        print('\tRecall : {:.2f} Precision : {:.2f}'.format(np.sum((y_hat == test_labels_numpy) * (test_labels_numpy == 1)) / np.sum(test_labels_numpy == 1),
+                                                            np.sum((y_hat == test_labels_numpy) * (test_labels_numpy == 1)) / np.sum(y_hat == 1)))
+
         print('\tCohen\'s Kappa : {:.3f}'.format(kappa_cohen))
         print(Fore.RESET)
         return balanced_accuracy
