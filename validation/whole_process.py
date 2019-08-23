@@ -42,7 +42,7 @@ if __name__ == '__main__':
                                         'TG05': random_seg_total['TG05'][i],
                                         'TG06': random_seg_total['TG06'][i]})
     for i, files_dict in enumerate(random_seg_per_instance):
-        current_out_fold = join(better_than_chance_fold, 'exp1')
+        current_out_fold = join(better_than_chance_fold, 'exp' + str(i))
         try:
             mkdir(current_out_fold)
         except FileExistsError:
