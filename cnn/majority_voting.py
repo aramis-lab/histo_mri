@@ -44,8 +44,7 @@ class MajorityVoting:
         return x
 
     def train_across_folds(self, best_parameters, patch_aggregator):
-        epochs = 2
-        balanced_accuracy = np.zeros((len(self.cnn_pool), epochs))
+        balanced_accuracy = np.zeros((len(self.cnn_pool), best_parameters['epoch']))
         for i in range(len(self.cnn_pool)):
             current_params = {'batch_size': int(best_parameters['batch_size']),
                               'shuffle': True,
@@ -55,7 +54,7 @@ class MajorityVoting:
             dataset_test = patch_aggregator.get_tensor(*best_parameters['val_set'][i])
             balanced_accuracy[i, :] = self.cnn_pool[i].train_nn(dataloader_train,
                                                                 lr=best_parameters['learning_rate'],
-                                                                n_epoch=epochs,
+                                                                n_epoch=best_parameters['epoch'],
                                                                 val_data=dataset_test)
         return balanced_accuracy
 
