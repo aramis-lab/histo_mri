@@ -21,7 +21,7 @@ class CrossValidation:
         #                                                                                  n_epochs=10)
         parameters = {'n_epochs': 10,
                       'learning_rate': np.logspace(-4, -1, 8),
-                       'batch_size': np.array([32, 64])}
+                      'batch_size': np.array([32, 64])}
         self.nested_cross_validation_with_grid_search(4, 3, data_aggreagator, parameters, cnn)
 
     @staticmethod
