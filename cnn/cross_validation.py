@@ -15,10 +15,14 @@ from os import remove, mkdir, getcwd
 class CrossValidation:
 
     def __init__(self, cnn, data_aggreagator, output_folder):
-        self.hyperparameter_matrix, self.best_hyperparameters = self.find_hyper_parameter(cnn,
-                                                                                          data_aggreagator,
-                                                                                          output_directory=output_folder,
-                                                                                          n_epochs=10)
+        #self.hyperparameter_matrix, self.best_hyperparameters = self.find_hyper_parameter(cnn,
+        #                                                                                  data_aggreagator,
+        #                                                                                  output_directory=output_folder,
+        #                                                                                  n_epochs=10)
+        parameters = {'n_epochs': 10,
+                      'learning_rate': np.logspace(-4, -1, 8),
+                       'batch_size': np.array([32, 64])}
+        self.nested_cross_validation_with_grid_search(4, 3, data_aggreagator, parameters, cnn)
 
     @staticmethod
     def write_informations(n_epoch, lr_range, batch_size_range, train_set, val_set, test_set, patch_shape, in_mat, output_file):
@@ -172,9 +176,39 @@ class CrossValidation:
         return accuracy_hyperparameters, best_hyperparameters
 
 
+    @staticmethod
+    def nested_cross_validation_with_grid_search(K1, K2, data_agg, parameter_grid, CNN):
+        from sklearn.model_selection import GroupKFold, GridSearchCV, cross_val_score
+
+        group_kfold_outter = GroupKFold(n_splits=K1)
+
+        X = data_agg.all_patches
+        y = data_agg.all_labels
+        group_names = np.array(data_agg.mouse_name)
+
+        # Split dataset for outter fold
+        for train_index_outter, test_index_outter in group_kfold_outter.split(X, y, group_names):
+            print("GROUP TRAIN:", list(set(group_names[train_index_outter])), '(' + str(len(train_index_outter)) + ')',
+                  "GROUP TEST:", list(set(group_names[test_index_outter])), '(' + str(len(test_index_outter)) + ')')
+
+            group_kfold_inner = GroupKFold(n_splits=K2)
+            #grid_search_CV = GridSearchCV(CNN, parameter_grid, cv=group_kfold_inner.split(X[train_index_outter],
+            #                                                                              y[train_index_outter],
+            #                                                                              group_names[train_index_outter]))
+            for train_index_inner, test_index_inner in group_kfold_inner.split(X[train_index_outter],
+                                                                               y[train_index_outter],
+                                                                               group_names[train_index_outter]):
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
-    aggregator = load_object('/Users/arnaud.marcoux/histo_mri/pickled_data/patch_aggregator_8_8')
+    aggregator = load_object('/Users/arnaud.marcoux/histo_mri/results/patch_aggregator_8_8')
     CNN = HistoNet()
     cross_val = CrossValidation(cnn=CNN,
                                 data_aggreagator=aggregator,
-                                output_folder='/Users/arnaud.marcoux/histo_mri/pickled_data/simple_model_kappa')
+                                output_folder='/Users/arnaud.marcoux/histo_mri/results/cross_val')
