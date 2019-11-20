@@ -2,58 +2,13 @@ import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 from sklearn.utils.multiclass import unique_labels
-from sklearn.metrics import euclidean_distances
 from cnn.neural_network import HistoNet
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataset import TensorDataset
+import torch
+from colorama import Fore
 
-
-class CnnEstimator(BaseEstimator):
-
-    def __init__(self, learning_rate, batch_size, n_epochs):
-        self.learning_rate = learning_rate
-        self.batch_size = batch_size
-        self.n_epochs = n_epochs
-        self.net = HistoNet
-
-    def fit(self, X, y):
-        """A reference implementation of a fitting function.
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            The training input samples.
-        y : array-like, shape (n_samples,) or (n_samples, n_outputs)
-            The target values (class labels in classification, real numbers in
-            regression).
-        Returns
-        -------
-        self : object
-            Returns self.
-        """
-        X, y = check_X_y(X, y, accept_sparse=True)
-        self.net.train_nn(XXXX,
-                          lr=self.learning_rate,
-                          n_epoch=self.n_epochs,
-                          val_data=XXXX)
-        self.is_fitted_ = True
-        # `fit` should always return `self`
-        return self
-
-    def predict(self, X):
-        """ A reference implementation of a predicting function.
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            The training input samples.
-        Returns
-        -------
-        y : ndarray, shape (n_samples,)
-            Returns an array of ones.
-        """
-        X = check_array(X, accept_sparse=True)
-        check_is_fitted(self, 'is_fitted_')
-        return np.ones(X.shape[0], dtype=np.int64)
-
-
-class TemplateClassifier(BaseEstimator, ClassifierMixin):
+class CnnClassifier(BaseEstimator, ClassifierMixin):
     """ An example classifier which implements a 1-NN algorithm.
     For more information regarding how to build your own classifier, read more
     in the :ref:`User Guide <user_guide>`.
@@ -70,29 +25,48 @@ class TemplateClassifier(BaseEstimator, ClassifierMixin):
     classes_ : ndarray, shape (n_classes,)
         The classes seen at :meth:`fit`.
     """
-    def __init__(self, demo_param='demo'):
-        self.demo_param = demo_param
+    def __init__(self, learning_rate=0.1, batch_size=32, n_epochs=5):
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
+        self.n_epochs = n_epochs
+        self.net = HistoNet()
 
     def fit(self, X, y):
-        """A reference implementation of a fitting function for a classifier.
+        """A reference implementation of a fitting function.
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
             The training input samples.
-        y : array-like, shape (n_samples,)
-            The target values. An array of int.
+        y : array-like, shape (n_samples,) or (n_samples, n_outputs)
+            The target values (class labels in classification, real numbers in
+            regression).
         Returns
         -------
         self : object
             Returns self.
         """
-        # Check that X and y have correct shape
-        X, y = check_X_y(X, y)
+
+        X, y = check_X_y(X, y, accept_sparse=True, multi_output=True, allow_nd=True)
+        params = {'batch_size': self.batch_size,
+                  'shuffle': True,
+                  'num_workers': 8}
+        dataset = TensorDataset(torch.from_numpy(X),
+                                torch.from_numpy(y))
+        dataloader = DataLoader(dataset, **params)
+        print('Training CNN with parameters: '
+              + 'batch size: ' + str(self.batch_size)
+              + ' learning rate: ' + str(self.learning_rate)
+              + ' n epochs: ' + str(self.n_epochs))
+        self.net.train_nn(dataloader=dataloader,
+                          lr=self.learning_rate,
+                          n_epoch=self.n_epochs)
+        self.is_fitted_ = True
+
         # Store the classes seen during fit
         self.classes_ = unique_labels(y)
-
         self.X_ = X
         self.y_ = y
+
         # Return the classifier
         return self
 
@@ -112,70 +86,9 @@ class TemplateClassifier(BaseEstimator, ClassifierMixin):
         check_is_fitted(self, ['X_', 'y_'])
 
         # Input validation
-        X = check_array(X)
-
-        closest = np.argmin(euclidean_distances(X, self.X_), axis=1)
-        return self.y_[closest]
-
-
-class TemplateTransformer(BaseEstimator, TransformerMixin):
-    """ An example transformer that returns the element-wise square root.
-    For more information regarding how to build your own transformer, read more
-    in the :ref:`User Guide <user_guide>`.
-    Parameters
-    ----------
-    demo_param : str, default='demo'
-        A parameter used for demonstation of how to pass and store paramters.
-    Attributes
-    ----------
-    n_features_ : int
-        The number of features of the data passed to :meth:`fit`.
-    """
-    def __init__(self, demo_param='demo'):
-        self.demo_param = demo_param
-
-    def fit(self, X, y=None):
-        """A reference implementation of a fitting function for a transformer.
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            The training input samples.
-        y : None
-            There is no need of a target in a transformer, yet the pipeline API
-            requires this parameter.
-        Returns
-        -------
-        self : object
-            Returns self.
-        """
-        X = check_array(X, accept_sparse=True)
-
-        self.n_features_ = X.shape[1]
-
-        # Return the transformer
-        return self
-
-    def transform(self, X):
-        """ A reference implementation of a transform function.
-        Parameters
-        ----------
-        X : {array-like, sparse-matrix}, shape (n_samples, n_features)
-            The input samples.
-        Returns
-        -------
-        X_transformed : array, shape (n_samples, n_features)
-            The array containing the element-wise square roots of the values
-            in ``X``.
-        """
-        # Check is fit had been called
-        check_is_fitted(self, 'n_features_')
-
-        # Input validation
-        X = check_array(X, accept_sparse=True)
-
-        # Check that the input is of the same shape as the one passed
-        # during fit.
-        if X.shape[1] != self.n_features_:
-            raise ValueError('Shape of input is different from what was seen'
-                             'in `fit`')
-        return np.sqrt(X)
+        X = check_array(X, ensure_2d=False, allow_nd=True)
+        with torch.no_grad():
+            probability = self.net(torch.from_numpy(X))
+        probability_numpy = probability.detach().numpy()
+        y_hat_numpy = np.argmax(probability_numpy, axis=1)
+        return y_hat_numpy

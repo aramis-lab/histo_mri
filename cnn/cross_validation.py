@@ -1,214 +1,90 @@
-from sklearn.model_selection import StratifiedKFold, KFold
-import numpy as np
-from os.path import isfile
-import torch
 import numpy as np
 from patch.patch_aggregator import PatchAggregator
 from algorithms.algo_utils import load_object
-from cnn.neural_network import HistoNet
-from torch.utils.data.dataset import TensorDataset, Subset
-from torch.utils.data.dataloader import DataLoader
-from os.path import join, isfile, exists
-from os import remove, mkdir, getcwd
+from cnn.estimator import CnnClassifier
+from sklearn.metrics import classification_report
+from colorama import Fore
+from sklearn.model_selection import GroupKFold, GridSearchCV
+from os.path import isfile
 
+def nested_cross_validation_with_grid_search(K1,
+                                             K2,
+                                             data_agg,
+                                             parameter_grid,
+                                             CNN,
+                                             output_file):
+    """
+    Nested cross validation with grid search using scikit-learn libraries. Our model, the CNN is wrapped into an estimator
+    from scikit learn. This allows us to use cross validation procedures.
+    :param K1: number of outter folds. In our case, 4
+    :param K2: number of inner fold. In our case 3
+    :param data_agg: All our data label
+    :param parameter_grid: Dictionnaries of paramters that we want to test for our model
+    :param CNN: Our estimator
+    :param output_file: Our file with results from differents splits, performance and best parameters
+    :return: Nothing
+    """
+    group_kfold_outter = GroupKFold(n_splits=K1)
 
-class CrossValidation:
+    X = data_agg.all_patches
+    y = data_agg.all_labels
+    reformat_group_name = [elem[-2:] for elem in data_agg.mouse_name]
+    reformat_group_name = np.array(reformat_group_name)
+    group_names = np.array(data_agg.mouse_name)
 
-    def __init__(self, cnn, data_aggreagator, output_folder):
-        #self.hyperparameter_matrix, self.best_hyperparameters = self.find_hyper_parameter(cnn,
-        #                                                                                  data_aggreagator,
-        #                                                                                  output_directory=output_folder,
-        #                                                                                  n_epochs=10)
-        parameters = {'n_epochs': 10,
-                      'learning_rate': np.logspace(-4, -1, 8),
-                      'batch_size': np.array([32, 64])}
-        self.nested_cross_validation_with_grid_search(4, 3, data_aggreagator, parameters, cnn)
+    # Split dataset for outter fold
+    for i, (train_index_outter, test_index_outter) in enumerate(group_kfold_outter.split(X, y, reformat_group_name)):
+        describe_outter_split = ("GROUP TRAIN: " + str(list(set(group_names[train_index_outter]))) + ' (' + str(len(train_index_outter)) + ') '
+                                 + "GROUP TEST: " + str(list(set(group_names[test_index_outter]))) + ' (' + str(len(test_index_outter)) + ')\n')
+        print(describe_outter_split)
 
-    @staticmethod
-    def write_informations(n_epoch, lr_range, batch_size_range, train_set, val_set, test_set, patch_shape, in_mat, output_file):
-        """
-        :param n_epoch:
-        :param lr_range:
-        :param batch_size_range:
-        :param train_set:
-        :param val_set:
-        :param test_set:
-        :param patch_shape:
-        :param in_mat:
-        :param output_file:
-        :return: best hyperparameters
-        """
-
-        mat = np.load(in_mat)
-        # Averaging along folds
-        mat_avg = np.mean(mat, axis=0)
-        argmax = np.unravel_index(np.argmax(mat_avg), mat_avg.shape)
-
-        best_accuracy_fold = mat[:, argmax[0], argmax[1], :]
-        idx_best_fold = np.unravel_index(np.argmax(best_accuracy_fold), best_accuracy_fold.shape)[0]
-
-        if isfile(output_file):
-            remove(output_file)
-
-        with open(output_file, 'w') as file:
-            file.write('\npatch shape : ' + str(patch_shape))
-            file.write('\nn_epoch : ' + str(n_epoch))
-            file.write('\nlr_range : ' + str(lr_range))
-            file.write('\nbatch_size_range : ' + str(batch_size_range))
-            file.write('\nmatrix file : ' + str(in_mat))
-            file.write('\ntrain set : ' + str(train_set))
-            file.write('\nval set : ' + str(val_set))
-            file.write('\ntest set' + str(test_set))
-            file.write('\n\n** Best model :\nlr : ' + str(lr_range[argmax[0]]))
-            file.write('\nbatch size : ' + str(batch_size_range[argmax[1]]))
-            file.write('\nepoch : ' + str(argmax[2]))
-            file.write('\nidx best fold : ' + str(idx_best_fold))
-            file.write('\nBest balanced accuracy (avg across folds): ' + str(np.max(mat_avg)))
-
-        return {'batch_size': batch_size_range[argmax[1]], 'learning_rate': lr_range[argmax[0]], 'epoch': argmax[2],
-                'train_set': train_set, 'val_set': val_set, 'test_set': test_set}
-
-    @staticmethod
-    def divide_population():
-        n_tg, n_wt = 4, 4
-        assert n_tg == n_wt, 'This cross validation procedure is designed to work only when n_tg == n_wt'
-
-        tg = np.arange(0, 4, 1)
-        wt = np.arange(0, 4, 1)
-
-        # Real draw
-        # test_tg = np.random.choice(tg, 1, replace=False)[0]
-        # test_wt = np.random.choice(wt, 1, replace=False)[0]
-        test_tg = 1
-        test_wt = 3
-
-        tg = [elem for elem in tg if elem != test_tg]
-        wt = [elem for elem in wt if elem != test_wt]
-
-        kf_tg = KFold(n_splits=n_tg - 1, shuffle=True, random_state=10)
-        kf_wt = KFold(n_splits=n_wt - 1, shuffle=True, random_state=11)
-
-        train_set = []
-        val_set = []
-        test_set = [test_tg, test_wt]
-
-        for (idx_train_tg, idx_val_tg), (idx_train_wt, idx_val_wt) in zip(kf_tg.split(tg), kf_wt.split(wt)):
-            train_set.append(([tg[idx] for idx in idx_train_tg], [wt[idx] for idx in idx_train_wt]))
-            val_set.append(([tg[idx] for idx in idx_val_tg], [wt[idx] for idx in idx_val_wt]))
-
-        return train_set, val_set, test_set
-
-    def find_hyper_parameter(self,
-                             cnn,
-                             data,
-                             n_epochs=10,
-                             lr_range=np.logspace(-4, -1, 8),
-                             batch_size_range=np.array([32, 64]),
-                             output_directory=getcwd()):
-        """
-        :param cnn: Neural net
-        :param data: patchAggregator
-        :param n_epochs: n_epoch to run while searching for best hyperparameters
-        :param lr_range: learning_rate range
-        :param batch_size_range: batch_size range
-        :param output_directory:
-        :return:
-        """
-
-        if not exists(output_directory):
-            mkdir(output_directory)
-
-        # CV model
-        k_fold = 3
-
-        accuracy_hyperparameters = np.zeros((k_fold,
-                                             lr_range.size,
-                                             batch_size_range.size,
-                                             n_epochs)).astype('float')
-        # len(train_slices = k_fold (3)
-        # len(val_slices = k_fold (3)
-        # len (test_slices) = 1
-        train_slices, val_slices, test_slices = self.divide_population()
-        train_slices_name = []
-        val_slices_name = []
-        test_slices_name = ['TG0' + str(test_slices[0] + 3), 'WT0' + str(test_slices[1] + 3)]
-
-        for train_slice, val_slice in zip(train_slices, val_slices):
-            train_slices_name.append(['TG0' + str(n + 3) for n in train_slice[0]]
-                                     + ['WT0' + str(n + 3) for n in train_slice[1]])
-            val_slices_name.append(['TG0' + str(n + 3) for n in val_slice[0]]
-                                   + ['WT0' + str(n + 3) for n in val_slice[1]])
-        train_idx = []
-        val_idx = []
-
-        for k, (train_slice_name, val_slice_name) in enumerate(zip(train_slices_name, val_slices_name)):
-            train_idx.append([i for i in range(len(data.mouse_name)) if data.mouse_name[i] in train_slice_name])
-            val_idx.append([i for i in range(len(data.mouse_name)) if data.mouse_name[i] in val_slice_name])
-
-        dataset = TensorDataset(torch.from_numpy(data.all_patches),
-                                torch.from_numpy(data.all_labels))
-        best_hyperparameters = {}
-        # k_fold grid
-        for idx_k in range(k_fold):
-            # Those lines displays information of the repartition of dnf labels within each train / val t
-
-            subset_train = Subset(dataset, train_idx[idx_k])
-
-            for idx_lr, lr in enumerate(lr_range):
-                for idx_bs, batch_size in enumerate(batch_size_range):
-                    current_params = {'batch_size': int(batch_size),
-                                      'shuffle': True,
-                                      'num_workers': 8}
-                    dataloader_train = DataLoader(subset_train, **current_params)
-                    dataset_val = data.get_tensor(*val_slices_name[idx_k])
-                    accuracy_hyperparameters[idx_k, idx_lr, idx_bs, :] = cnn.train_nn(dataloader_train,
-                                                                                      lr=lr,
-                                                                                      n_epoch=n_epochs,
-                                                                                      val_data=dataset_val)
-                    np.save(join(output_directory, 'hyperparameter_matrix.npy'), accuracy_hyperparameters)
-                    best_hyperparameters = self.write_informations(n_epochs, lr_range, batch_size_range,
-                                                                   train_slices_name,
-                                                                   val_slices_name,
-                                                                   test_slices_name,
-                                                                   data.all_patches[0].shape,
-                                                                   join(output_directory, 'hyperparameter_matrix.npy'),
-                                                                   join(output_directory, 'results_cnn.txt'))
-        return accuracy_hyperparameters, best_hyperparameters
-
-
-    @staticmethod
-    def nested_cross_validation_with_grid_search(K1, K2, data_agg, parameter_grid, CNN):
-        from sklearn.model_selection import GroupKFold, GridSearchCV, cross_val_score
-
-        group_kfold_outter = GroupKFold(n_splits=K1)
-
-        X = data_agg.all_patches
-        y = data_agg.all_labels
-        group_names = np.array(data_agg.mouse_name)
-
-        # Split dataset for outter fold
-        for train_index_outter, test_index_outter in group_kfold_outter.split(X, y, group_names):
-            print("GROUP TRAIN:", list(set(group_names[train_index_outter])), '(' + str(len(train_index_outter)) + ')',
-                  "GROUP TEST:", list(set(group_names[test_index_outter])), '(' + str(len(test_index_outter)) + ')')
-
-            group_kfold_inner = GroupKFold(n_splits=K2)
-            #grid_search_CV = GridSearchCV(CNN, parameter_grid, cv=group_kfold_inner.split(X[train_index_outter],
-            #                                                                              y[train_index_outter],
-            #                                                                              group_names[train_index_outter]))
-            for train_index_inner, test_index_inner in group_kfold_inner.split(X[train_index_outter],
-                                                                               y[train_index_outter],
-                                                                               group_names[train_index_outter]):
+        group_kfold_inner = GroupKFold(n_splits=K2)
+        grid_search_cv = GridSearchCV(CNN, parameter_grid, cv=group_kfold_inner.split(X[train_index_outter],
+                                                                                      y[train_index_outter],
+                                                                                      reformat_group_name[train_index_outter]))
+        grid_search_cv.fit(X, y)
+        optimal_parameters = grid_search_cv.best_params_
+        best_model_for_this_split = CnnClassifier(learning_rate=optimal_parameters['learning_rate'],
+                                                  batch_size=optimal_parameters['batch_size'],
+                                                  n_epochs=optimal_parameters['n_epochs'])
+        best_model_for_this_split.fit(X[train_index_outter],
+                                      y[train_index_outter])
+        report = ('Performance on split ' + str(i) + ':\n\tBest parameters:\n'
+                  +'\n\tbatch size: ' + str(optimal_parameters['batch_size'])
+                  + '\n\tlearning rate: ' + str(optimal_parameters['learning_rate'])
+                  + '\n\tn epochs: ' + str(optimal_parameters['n_epochs']) + '\n'
+                  + classification_report(y_true=y[test_index_outter],
+                                          y_pred=best_model_for_this_split.predict(X[test_index_outter]),
+                                          target_names=['no-dnf', 'dnf'],
+                                          digits=3))
+        print(report)
+        final_txt = describe_outter_split + report
+        add_log_information(final_txt, output_file)
 
 
 
-
-
-
+def add_log_information(my_txt, file):
+    # a for append, and + if it does not exist
+    with open(file, 'a+') as f:
+        f.write(my_txt)
 
 
 if __name__ == '__main__':
     aggregator = load_object('/Users/arnaud.marcoux/histo_mri/results/patch_aggregator_8_8')
-    CNN = HistoNet()
-    cross_val = CrossValidation(cnn=CNN,
-                                data_aggreagator=aggregator,
-                                output_folder='/Users/arnaud.marcoux/histo_mri/results/cross_val')
+    CNN = CnnClassifier()
+    parameters = {'n_epochs': [1],
+                  'learning_rate': list(np.logspace(-4, -1, 8)),
+                  'batch_size': [32, 64]}
+
+    parameters = {'n_epochs': [1],
+                  'learning_rate': [0.1],
+                  'batch_size': [32]}
+
+    outfile_correct_segmentation = '/Users/arnaud.marcoux/histo_mri/results/cross_val/cross_val_results_TRUE_SEG.txt'
+    nested_cross_validation_with_grid_search(K1=4,
+                                             K2=3,
+                                             data_agg=aggregator,
+                                             parameter_grid=parameters,
+                                             CNN=CNN,
+                                             output_file=outfile_correct_segmentation)
+

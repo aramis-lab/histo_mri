@@ -67,8 +67,7 @@ class HistoNet(nn.Module):
     def train_nn(self,
                  dataloader,
                  lr=0.01,
-                 n_epoch=5,
-                 val_data=None):
+                 n_epoch=5):
         """
         :param dataloader: torch.dataloader object
         :param lr:
@@ -109,16 +108,10 @@ class HistoNet(nn.Module):
                     balanced_accuracy = (sensitivity + specificity) / 2
                     running_accuracy = np.divide(np.sum(np.array(y_hat_train_label) == np.array(y_train_label)),
                                                  np.float(len(y_hat_train_label)))
-                    print('Epoch [{}/{}], Step [{}/{}], Batch Loss: {:.4f}, Batch Accuracy: {:.2f}%, Running Accuracy: {:.2f}%, Balanced Accuracy: {:.2f}%'
-                          .format(epoch + 1, n_epoch, m + 1, n_iter, loss.item(), 100 * batch_accuracy, 100 * running_accuracy, 100 * balanced_accuracy))
-            print('Results for epoch number ' + str(epoch + 1) + ':')
-            if val_data is not None:
-                accuracy.append(self.test(val_data.tensors[0], val_data.tensors[1]))
-            else:
-                accuracy.append(-1)
-        print(Fore.GREEN + '*** Neural network is trained ***'.upper() + Fore.RESET)
-        self._trained = True
-        self._currently_training = False
+                    # print('Epoch [{}/{}], Step [{}/{}], Batch Loss: {:.4f}, Batch Accuracy: {:.2f}%, Running Accuracy: {:.2f}%, Balanced Accuracy: {:.2f}%'
+                          #.format(epoch + 1, n_epoch, m + 1, n_iter, loss.item(), 100 * batch_accuracy, 100 * running_accuracy, 100 * balanced_accuracy))
+            # print('Results for epoch number ' + str(epoch + 1) + ':')
+        print('\t...Neural network is trained')
         return np.array(accuracy)
 
     @staticmethod
@@ -159,7 +152,7 @@ class HistoNet(nn.Module):
         p_both_no_dnf = (np.sum(y_hat == 0) / y_hat.size) * (np.sum(test_labels_numpy == 0) / test_labels_numpy.size)
         p_random_agreement = p_both_dnf + p_both_no_dnf
         kappa_cohen = (accuracy - p_random_agreement) / (1 - p_random_agreement)
-
+        """
         if balanced_accuracy != balanced_accuracy:
             print('** Nan problem **')
             print('acc ' + str(accuracy))
@@ -179,6 +172,7 @@ class HistoNet(nn.Module):
 
         print('\tCohen\'s Kappa : {:.3f}'.format(kappa_cohen))
         print(Fore.RESET)
+        """
         return balanced_accuracy
 
 
