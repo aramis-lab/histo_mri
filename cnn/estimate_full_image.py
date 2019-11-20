@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.data.dataloader import DataLoader
-from os.path import isfile
+from os.path import isfile, dirname
 import numpy as np
 from skimage.transform import warp
 import os
@@ -16,10 +16,7 @@ class FullImageEstimate:
 
     def __init__(self, cnn_histo, patch_creator, realignment, mri_shape):
 
-        labels_estimate = np.argmax(cnn_histo(torch.tensor(patch_creator.input_patches,
-                                                           dtype=torch.float32)).detach().numpy(),
-                                    axis=1)
-
+        labels_estimate = cnn_histo.predict(patch_creator.input_patches)
         self.image_name = patch_creator.name
 
         # This section obtains the estimation from the CNN HistoNet
@@ -82,10 +79,10 @@ class FullImageEstimate:
     def produce_estimate(mri_shape, labels, mri_coordinates):
         pass
 
-    def show_estimate(self, output_dir):
+    def show_estimate(self, output_file):
 
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
+        if not os.path.exists(dirname(output_file)):
+            os.mkdir(dirname(output_file))
 
         myfig = plt.figure(3)
         myfig.suptitle('Estimation of labels in ' + self.image_name, fontsize=7)
@@ -131,7 +128,7 @@ class FullImageEstimate:
         plt.title('ground truth pixelwise', fontsize=7)
         ax.axis('off')
 
-        plt.savefig(join(output_dir, self.image_name + '_estimation.png'), dpi=800)
+        plt.savefig(output_file, dpi=800)
 
     @staticmethod
     def pixel_wise_classification(mri_coordinates, labels_estimate, mri_shape):
