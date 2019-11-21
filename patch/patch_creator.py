@@ -241,7 +241,7 @@ class PatchCreator:
         get_label_partial = partial(self.get_label, labelized_img=label_img)
 
         # Multiprocessing
-        pool = Pool(processes=cpu_count())
+        pool = Pool(processes=min(20, cpu_count()))
 
         # Empirically determine chunksize. If elapsed time not consistent with 0 .22 sec, try around 500
         n_chunksize = len(self.histo_coordinates) // cpu_count()

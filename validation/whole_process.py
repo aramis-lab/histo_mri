@@ -36,8 +36,8 @@ class WholeProcess:
         self.cnn = CnnClassifier()
 
         self.paramter_grid = {'n_epochs': [8, 12],
-                            'learning_rate': list(np.logspace(-4, -1, 8)),
-                            'batch_size': [32, 64]}
+                              'learning_rate': list(np.logspace(-4, -1, 8)),
+                              'batch_size': [32, 64]}
         nested_cross_validation_with_grid_search(K1=4,
                                                  K2=3,
                                                  data_agg=self.patch_aggregator,
