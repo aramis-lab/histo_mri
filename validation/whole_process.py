@@ -7,7 +7,7 @@ from os.path import join
 import numpy as np
 from os import listdir, mkdir
 from algorithms.algo_utils import save_as_pickled_object
-from cross_validation import nested_cross_validation_with_grid_search
+from cnn.cross_validation import nested_cross_validation_with_grid_search
 from cnn.estimator import CnnClassifier
 
 
