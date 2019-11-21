@@ -5,8 +5,10 @@ from cnn.estimator import CnnClassifier
 from sklearn.metrics import classification_report
 from colorama import Fore
 from sklearn.model_selection import GroupKFold, GridSearchCV
-from os.path import dirname, join
+from os.path import dirname, join, isdir
+from os import mkdir
 from cnn.estimate_full_image import FullImageEstimate
+
 
 def nested_cross_validation_with_grid_search(K1,
                                              K2,
@@ -88,6 +90,8 @@ def nested_cross_validation_with_grid_search(K1,
 
 
 def add_log_information(my_txt, file):
+    if not isdir(dirname(file)):
+        mkdir(dirname(file))
     # a for append, and + if it does not exist
     with open(file, 'a+') as f:
         f.write(my_txt)
@@ -107,7 +111,7 @@ if __name__ == '__main__':
     patch_creators = load_object('/Users/arnaud.marcoux/histo_mri/results/patch_creators_8_8')
 
     CNN = CnnClassifier()
-    parameters = {'n_epochs': [1],
+    parameters = {'n_epochs': [8],
                   'learning_rate': list(np.logspace(-4, -1, 8)),
                   'batch_size': [32, 64]}
 

@@ -82,6 +82,8 @@ class HistoNet(nn.Module):
         n_iter = len(dataloader)
         self._currently_training = True
         accuracy = []
+
+
         for epoch in range(n_epoch):
             # This array is only to generate acc performance
             y_train_label = []
@@ -110,7 +112,7 @@ class HistoNet(nn.Module):
                                                  np.float(len(y_hat_train_label)))
                     # print('Epoch [{}/{}], Step [{}/{}], Batch Loss: {:.4f}, Batch Accuracy: {:.2f}%, Running Accuracy: {:.2f}%, Balanced Accuracy: {:.2f}%'
                           #.format(epoch + 1, n_epoch, m + 1, n_iter, loss.item(), 100 * batch_accuracy, 100 * running_accuracy, 100 * balanced_accuracy))
-            # print('Results for epoch number ' + str(epoch + 1) + ':')
+
         print('\t...Neural network is trained')
         return np.array(accuracy)
 
