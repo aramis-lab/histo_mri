@@ -1,5 +1,6 @@
 from validation.whole_process import WholeProcess
 from os.path import join
+from algorithms.algo_utils import load_object, save_object
 
 if __name__ == '__main__':
 
@@ -22,4 +23,5 @@ if __name__ == '__main__':
                             output_folder=join(output_folder, 'true_seg_experiment'),
                             patch_shape=patch_shape,
                             segmentation_path=true_seg_path)
+    save_object(true_seg, join(output_folder, 'true_seg_experiment', 'whole_process'))
 
