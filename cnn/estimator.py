@@ -49,7 +49,7 @@ class CnnClassifier(BaseEstimator, ClassifierMixin):
         X, y = check_X_y(X, y, accept_sparse=True, multi_output=True, allow_nd=True)
         params = {'batch_size': self.batch_size,
                   'shuffle': True,
-                  'num_workers': 20}
+                  'num_workers': 40}
         dataset = TensorDataset(torch.from_numpy(X),
                                 torch.from_numpy(y))
         dataloader = DataLoader(dataset, **params)

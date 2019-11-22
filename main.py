@@ -5,8 +5,8 @@ from algorithms.algo_utils import load_object, save_object
 if __name__ == '__main__':
 
     # Var
-    input_folder = '/Users/arnaud.marcoux/histo_mri/images'
-    output_folder = '/Users/arnaud.marcoux/histo_mri/pickled_data'
+    input_folder = '/localdrive10TB/data/arnaud.marcoux/histo_irm/images'
+    output_folder = '/localdrive10TB/data/arnaud.marcoux/histo_irm/output'
     patch_shape = (8, 8)
 
     # True segmentation: no need to specify them
