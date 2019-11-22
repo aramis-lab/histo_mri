@@ -11,25 +11,26 @@ if __name__ == '__main__':
 
     for i in range(15):
         random_segmentation = {'TG03': join(random_seg_folder, 'TG03', 'label_tg03_' + str(i) + '.npy'),
-                                'TG04': join(random_seg_folder, 'TG04', 'label_tg04_' + str(i) + '.npy'),
-                                'TG05': join(random_seg_folder, 'TG05', 'label_tg05_' + str(i) + '.npy'),
-                                'TG06': join(random_seg_folder, 'TG06', 'label_tg06_' + str(i) + '.npy'),
-                                'WT03': None,
-                                'WT04': None,
-                                'WT05': None,
-                                'WT06': None}
+                               'TG04': join(random_seg_folder, 'TG04', 'label_tg04_' + str(i) + '.npy'),
+                               'TG05': join(random_seg_folder, 'TG05', 'label_tg05_' + str(i) + '.npy'),
+                               'TG06': join(random_seg_folder, 'TG06', 'label_tg06_' + str(i) + '.npy'),
+                               'WT03': None,
+                               'WT04': None,
+                               'WT05': None,
+                               'WT06': None}
         for key in random_segmentation.keys():
-            assert isfile(random_segmentation[key]), random_segmentation[key] + ' does not exists'
+            if random_segmentation[key]:
+                assert isfile(random_segmentation[key]), random_segmentation[key] + ' does not exists'
 
     for i in range(15):
         random_segmentation = {'TG03': join(random_seg_folder, 'TG03', 'label_tg03_' + str(i) + '.npy'),
-                                'TG04': join(random_seg_folder, 'TG04', 'label_tg04_' + str(i) + '.npy'),
-                                'TG05': join(random_seg_folder, 'TG05', 'label_tg05_' + str(i) + '.npy'),
-                                'TG06': join(random_seg_folder, 'TG06', 'label_tg06_' + str(i) + '.npy'),
-                                'WT03': None,
-                                'WT04': None,
-                                'WT05': None,
-                                'WT06': None}
+                               'TG04': join(random_seg_folder, 'TG04', 'label_tg04_' + str(i) + '.npy'),
+                               'TG05': join(random_seg_folder, 'TG05', 'label_tg05_' + str(i) + '.npy'),
+                               'TG06': join(random_seg_folder, 'TG06', 'label_tg06_' + str(i) + '.npy'),
+                               'WT03': None,
+                               'WT04': None,
+                               'WT05': None,
+                               'WT06': None}
 
         out_foldr = join(output_folder, 'random_exp_' + str(i))
 
