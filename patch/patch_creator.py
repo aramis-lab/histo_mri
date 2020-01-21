@@ -248,7 +248,7 @@ class PatchCreator:
         n_chunksize = len(self.histo_coordinates) // n_processes
         if n_chunksize * n_processes != len(self.histo_coordinates):
             n_chunksize += 1
-        print('Begin pooling with ' + str(cpu_count()) + ' workers - chunksize ' + str(n_chunksize))
+        print('Begin pooling with ' + str(n_processes) + ' workers - chunksize ' + str(n_chunksize))
         t1 = time()
         labels = list(pool.map(get_label_partial, self.histo_coordinates, chunksize=n_chunksize))
         pool.close()
